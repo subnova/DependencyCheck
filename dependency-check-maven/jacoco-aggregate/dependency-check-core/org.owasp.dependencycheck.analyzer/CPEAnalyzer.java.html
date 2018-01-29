@@ -1,0 +1,867 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../../jacoco-resources/report.gif" type="image/gif"/><title>CPEAnalyzer.java</title><link rel="stylesheet" href="../../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../../index.html" class="el_report">Dependency-Check Maven Plugin</a> &gt; <a href="../index.html" class="el_bundle">dependency-check-core</a> &gt; <a href="index.source.html" class="el_package">org.owasp.dependencycheck.analyzer</a> &gt; <span class="el_source">CPEAnalyzer.java</span></div><h1>CPEAnalyzer.java</h1><pre class="source lang-java linenums">/*
+ * This file is part of dependency-check-core.
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright (c) 2012 Jeremy Long. All Rights Reserved.
+ */
+package org.owasp.dependencycheck.analyzer;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.StringTokenizer;
+import java.util.concurrent.TimeUnit;
+import javax.annotation.concurrent.ThreadSafe;
+import org.apache.commons.lang3.builder.CompareToBuilder;
+import org.apache.lucene.analysis.util.CharArraySet;
+import org.apache.lucene.document.Document;
+import org.apache.lucene.index.CorruptIndexException;
+import org.apache.lucene.queryparser.classic.ParseException;
+import org.apache.lucene.search.ScoreDoc;
+import org.apache.lucene.search.TopDocs;
+import org.owasp.dependencycheck.Engine;
+import org.owasp.dependencycheck.analyzer.exception.AnalysisException;
+import org.owasp.dependencycheck.data.cpe.CpeMemoryIndex;
+import org.owasp.dependencycheck.data.cpe.Fields;
+import org.owasp.dependencycheck.data.cpe.IndexEntry;
+import org.owasp.dependencycheck.data.cpe.IndexException;
+import org.owasp.dependencycheck.data.lucene.LuceneUtils;
+import org.owasp.dependencycheck.data.lucene.SearchFieldAnalyzer;
+import org.owasp.dependencycheck.data.nvdcve.CveDB;
+import org.owasp.dependencycheck.data.nvdcve.DatabaseException;
+import org.owasp.dependencycheck.dependency.Confidence;
+import org.owasp.dependencycheck.dependency.Dependency;
+import org.owasp.dependencycheck.dependency.Evidence;
+import org.owasp.dependencycheck.dependency.EvidenceType;
+import org.owasp.dependencycheck.dependency.Identifier;
+import org.owasp.dependencycheck.dependency.VulnerableSoftware;
+import org.owasp.dependencycheck.exception.InitializationException;
+import org.owasp.dependencycheck.utils.DependencyVersion;
+import org.owasp.dependencycheck.utils.DependencyVersionUtil;
+import org.owasp.dependencycheck.utils.Settings;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * CPEAnalyzer is a utility class that takes a project dependency and attempts
+ * to discern if there is an associated CPE. It uses the evidence contained
+ * within the dependency to search the Lucene index.
+ *
+ * @author Jeremy Long
+ */
+@ThreadSafe
+<span class="fc" id="L69">public class CPEAnalyzer extends AbstractAnalyzer {</span>
+
+    /**
+     * The Logger.
+     */
+<span class="fc" id="L74">    private static final Logger LOGGER = LoggerFactory.getLogger(CPEAnalyzer.class);</span>
+    /**
+     * The maximum number of query results to return.
+     */
+    private static final int MAX_QUERY_RESULTS = 25;
+    /**
+     * The weighting boost to give terms when constructing the Lucene query.
+     */
+    private static final String WEIGHTING_BOOST = &quot;^5&quot;;
+    /**
+     * A string representation of a regular expression defining characters
+     * utilized within the CPE Names. Note, the :/ are included so URLs are
+     * passed into the Lucene query so that the specialized tokenizer can parse
+     * them.
+     */
+    private static final String CLEANSE_CHARACTER_RX = &quot;[^A-Za-z0-9 ._:/-]&quot;;
+    /**
+     * A string representation of a regular expression used to remove all but
+     * alpha characters.
+     */
+    private static final String CLEANSE_NONALPHA_RX = &quot;[^A-Za-z]*&quot;;
+    /**
+     * The additional size to add to a new StringBuilder to account for extra
+     * data that will be written into the string.
+     */
+    private static final int STRING_BUILDER_BUFFER = 20;
+    /**
+     * The URL to perform a search of the NVD CVE data at NIST.
+     */
+    public static final String NVD_SEARCH_URL = &quot;https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&amp;cves=on&amp;cpe_version=%s&quot;;
+    /**
+     * The CPE in memory index.
+     */
+    private CpeMemoryIndex cpe;
+    /**
+     * The CVE Database.
+     */
+    private CveDB cve;
+    /**
+     * The list of ecosystems to skip during analysis. These are skipped because
+     * there is generally a more accurate vulnerability analyzer in the
+     * pipeline.
+     */
+    private List&lt;String&gt; skipEcosystems;
+
+    /**
+     * Returns the name of this analyzer.
+     *
+     * @return the name of this analyzer.
+     */
+    @Override
+    public String getName() {
+<span class="fc" id="L126">        return &quot;CPE Analyzer&quot;;</span>
+    }
+
+    /**
+     * Returns the analysis phase that this analyzer should run in.
+     *
+     * @return the analysis phase that this analyzer should run in.
+     */
+    @Override
+    public AnalysisPhase getAnalysisPhase() {
+<span class="fc" id="L136">        return AnalysisPhase.IDENTIFIER_ANALYSIS;</span>
+    }
+
+    /**
+     * Creates the CPE Lucene Index.
+     *
+     * @param engine a reference to the dependency-check engine
+     * @throws InitializationException is thrown if there is an issue opening
+     * the index.
+     */
+    @Override
+    public void prepareAnalyzer(Engine engine) throws InitializationException {
+<span class="fc" id="L148">        super.prepareAnalyzer(engine);</span>
+        try {
+<span class="fc" id="L150">            this.open(engine.getDatabase());</span>
+<span class="nc" id="L151">        } catch (IOException ex) {</span>
+<span class="nc" id="L152">            LOGGER.debug(&quot;Exception initializing the Lucene Index&quot;, ex);</span>
+<span class="nc" id="L153">            throw new InitializationException(&quot;An exception occurred initializing the Lucene Index&quot;, ex);</span>
+<span class="nc" id="L154">        } catch (DatabaseException ex) {</span>
+<span class="nc" id="L155">            LOGGER.debug(&quot;Exception accessing the database&quot;, ex);</span>
+<span class="nc" id="L156">            throw new InitializationException(&quot;An exception occurred accessing the database&quot;, ex);</span>
+<span class="fc" id="L157">        }</span>
+<span class="fc" id="L158">        final String[] tmp = engine.getSettings().getArray(Settings.KEYS.ECOSYSTEM_SKIP_CPEANALYZER);</span>
+<span class="pc bpc" id="L159" title="1 of 2 branches missed.">        if (tmp == null) {</span>
+<span class="nc" id="L160">            skipEcosystems = new ArrayList&lt;&gt;();</span>
+        } else {
+<span class="fc" id="L162">            LOGGER.info(&quot;Skipping CPE Analysis for {}&quot;, tmp);</span>
+<span class="fc" id="L163">            skipEcosystems = Arrays.asList(tmp);</span>
+        }
+<span class="fc" id="L165">    }</span>
+
+    /**
+     * Opens the data source.
+     *
+     * @param cve a reference to the NVD CVE database
+     * @throws IOException when the Lucene directory to be queried does not
+     * exist or is corrupt.
+     * @throws DatabaseException when the database throws an exception. This
+     * usually occurs when the database is in use by another process.
+     */
+    public void open(CveDB cve) throws IOException, DatabaseException {
+<span class="fc" id="L177">        this.cve = cve;</span>
+<span class="fc" id="L178">        this.cpe = CpeMemoryIndex.getInstance();</span>
+        try {
+<span class="fc" id="L180">            final long creationStart = System.currentTimeMillis();</span>
+<span class="fc" id="L181">            cpe.open(cve);</span>
+<span class="fc" id="L182">            final long creationSeconds = TimeUnit.MILLISECONDS.toSeconds(System.currentTimeMillis() - creationStart);</span>
+<span class="fc" id="L183">            LOGGER.info(&quot;Created CPE Index ({} seconds)&quot;, creationSeconds);</span>
+<span class="nc" id="L184">        } catch (IndexException ex) {</span>
+<span class="nc" id="L185">            LOGGER.debug(&quot;IndexException&quot;, ex);</span>
+<span class="nc" id="L186">            throw new DatabaseException(ex);</span>
+<span class="fc" id="L187">        }</span>
+<span class="fc" id="L188">    }</span>
+
+    /**
+     * Closes the data sources.
+     */
+    @Override
+    public void closeAnalyzer() {
+<span class="fc bfc" id="L195" title="All 2 branches covered.">        if (cpe != null) {</span>
+<span class="fc" id="L196">            cpe.close();</span>
+<span class="fc" id="L197">            cpe = null;</span>
+        }
+<span class="fc" id="L199">    }</span>
+
+    /**
+     * Searches the data store of CPE entries, trying to identify the CPE for
+     * the given dependency based on the evidence contained within. The
+     * dependency passed in is updated with any identified CPE values.
+     *
+     * @param dependency the dependency to search for CPE entries on.
+     * @throws CorruptIndexException is thrown when the Lucene index is corrupt.
+     * @throws IOException is thrown when an IOException occurs.
+     * @throws ParseException is thrown when the Lucene query cannot be parsed.
+     */
+    protected void determineCPE(Dependency dependency) throws CorruptIndexException, IOException, ParseException {
+<span class="fc" id="L212">        String vendors = &quot;&quot;;</span>
+<span class="fc" id="L213">        String products = &quot;&quot;;</span>
+<span class="fc bfc" id="L214" title="All 2 branches covered.">        for (Confidence confidence : Confidence.values()) {</span>
+<span class="fc bfc" id="L215" title="All 2 branches covered.">            if (dependency.contains(EvidenceType.VENDOR, confidence)) {</span>
+<span class="fc" id="L216">                vendors = addEvidenceWithoutDuplicateTerms(vendors, dependency.getIterator(EvidenceType.VENDOR, confidence));</span>
+<span class="fc" id="L217">                LOGGER.debug(&quot;vendor search: {}&quot;, vendors);</span>
+            }
+<span class="fc bfc" id="L219" title="All 2 branches covered.">            if (dependency.contains(EvidenceType.PRODUCT, confidence)) {</span>
+<span class="fc" id="L220">                products = addEvidenceWithoutDuplicateTerms(products, dependency.getIterator(EvidenceType.PRODUCT, confidence));</span>
+<span class="fc" id="L221">                LOGGER.debug(&quot;product search: {}&quot;, products);</span>
+            }
+<span class="pc bpc" id="L223" title="1 of 4 branches missed.">            if (!vendors.isEmpty() &amp;&amp; !products.isEmpty()) {</span>
+<span class="fc" id="L224">                final List&lt;IndexEntry&gt; entries = searchCPE(vendors, products, dependency.getVendorWeightings(),</span>
+                        dependency.getProductWeightings());
+<span class="pc bpc" id="L226" title="1 of 2 branches missed.">                if (entries == null) {</span>
+<span class="nc" id="L227">                    continue;</span>
+                }
+<span class="fc" id="L229">                boolean identifierAdded = false;</span>
+<span class="fc bfc" id="L230" title="All 2 branches covered.">                for (IndexEntry e : entries) {</span>
+<span class="fc" id="L231">                    LOGGER.debug(&quot;Verifying entry: {}&quot;, e);</span>
+<span class="fc bfc" id="L232" title="All 2 branches covered.">                    if (verifyEntry(e, dependency)) {</span>
+<span class="fc" id="L233">                        final String vendor = e.getVendor();</span>
+<span class="fc" id="L234">                        final String product = e.getProduct();</span>
+<span class="fc" id="L235">                        LOGGER.debug(&quot;identified vendor/product: {}/{}&quot;, vendor, product);</span>
+<span class="fc" id="L236">                        identifierAdded |= determineIdentifiers(dependency, vendor, product, confidence);</span>
+                    }
+<span class="fc" id="L238">                }</span>
+<span class="fc bfc" id="L239" title="All 2 branches covered.">                if (identifierAdded) {</span>
+<span class="fc" id="L240">                    break;</span>
+                }
+            }
+        }
+<span class="fc" id="L244">    }</span>
+
+    /**
+     * &lt;p&gt;
+     * Returns the text created by concatenating the text and the values from
+     * the EvidenceCollection (filtered for a specific confidence). This
+     * attempts to prevent duplicate terms from being added.&lt;/p&gt;
+     * &lt;p&gt;
+     * Note, if the evidence is longer then 200 characters it will be
+     * truncated.&lt;/p&gt;
+     *
+     * @param text the base text
+     * @param evidence an iterable set of evidence to concatenate
+     * @return the new evidence text
+     */
+    @SuppressWarnings(&quot;null&quot;)
+    protected String addEvidenceWithoutDuplicateTerms(final String text, final Iterable&lt;Evidence&gt; evidence) {
+<span class="pc bpc" id="L261" title="1 of 2 branches missed.">        final String txt = (text == null) ? &quot;&quot; : text;</span>
+<span class="fc" id="L262">        final StringBuilder sb = new StringBuilder(txt.length() * 2);</span>
+<span class="fc" id="L263">        sb.append(' ').append(txt).append(' ');</span>
+<span class="fc bfc" id="L264" title="All 2 branches covered.">        for (Evidence e : evidence) {</span>
+<span class="fc" id="L265">            String value = e.getValue();</span>
+<span class="pc bpc" id="L266" title="1 of 2 branches missed.">            if (value.length() &gt; 1000) {</span>
+<span class="nc" id="L267">                value = value.substring(0, 1000);</span>
+<span class="nc" id="L268">                final int pos = value.lastIndexOf(&quot; &quot;);</span>
+<span class="nc bnc" id="L269" title="All 2 branches missed.">                if (pos &gt; 0) {</span>
+<span class="nc" id="L270">                    value = value.substring(0, pos);</span>
+                }
+            }
+<span class="fc bfc" id="L273" title="All 2 branches covered.">            if (sb.indexOf(&quot; &quot; + value + &quot; &quot;) &lt; 0) {</span>
+<span class="fc" id="L274">                sb.append(value).append(' ');</span>
+            }
+<span class="fc" id="L276">        }</span>
+<span class="fc" id="L277">        return sb.toString().trim();</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Searches the Lucene CPE index to identify possible CPE entries associated
+     * with the supplied vendor, product, and version.&lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If either the vendorWeightings or productWeightings lists have been
+     * populated this data is used to add weighting factors to the search.&lt;/p&gt;
+     *
+     * @param vendor the text used to search the vendor field
+     * @param product the text used to search the product field
+     * @param vendorWeightings a list of strings to use to add weighting factors
+     * to the vendor field
+     * @param productWeightings Adds a list of strings that will be used to add
+     * weighting factors to the product search
+     * @return a list of possible CPE values
+     */
+    protected List&lt;IndexEntry&gt; searchCPE(String vendor, String product,
+            Set&lt;String&gt; vendorWeightings, Set&lt;String&gt; productWeightings) {
+
+<span class="fc" id="L300">        final List&lt;IndexEntry&gt; ret = new ArrayList&lt;&gt;(MAX_QUERY_RESULTS);</span>
+
+<span class="fc" id="L302">        final String searchString = buildSearch(vendor, product, vendorWeightings, productWeightings);</span>
+<span class="pc bpc" id="L303" title="1 of 2 branches missed.">        if (searchString == null) {</span>
+<span class="nc" id="L304">            return ret;</span>
+        }
+        try {
+<span class="fc" id="L307">            final TopDocs docs = cpe.search(searchString, MAX_QUERY_RESULTS);</span>
+<span class="fc bfc" id="L308" title="All 2 branches covered.">            for (ScoreDoc d : docs.scoreDocs) {</span>
+<span class="fc bfc" id="L309" title="All 2 branches covered.">                if (d.score &gt;= 0.08) {</span>
+<span class="fc" id="L310">                    final Document doc = cpe.getDocument(d.doc);</span>
+<span class="fc" id="L311">                    final IndexEntry entry = new IndexEntry();</span>
+<span class="fc" id="L312">                    entry.setVendor(doc.get(Fields.VENDOR));</span>
+<span class="fc" id="L313">                    entry.setProduct(doc.get(Fields.PRODUCT));</span>
+<span class="fc" id="L314">                    entry.setSearchScore(d.score);</span>
+<span class="pc bpc" id="L315" title="1 of 2 branches missed.">                    if (!ret.contains(entry)) {</span>
+<span class="fc" id="L316">                        ret.add(entry);</span>
+                    }
+                }
+            }
+<span class="fc" id="L320">            return ret;</span>
+<span class="nc" id="L321">        } catch (ParseException ex) {</span>
+<span class="nc" id="L322">            LOGGER.warn(&quot;An error occurred querying the CPE data. See the log for more details.&quot;);</span>
+<span class="nc" id="L323">            LOGGER.info(&quot;Unable to parse: {}&quot;, searchString, ex);</span>
+<span class="nc" id="L324">        } catch (IOException ex) {</span>
+<span class="nc" id="L325">            LOGGER.warn(&quot;An error occurred reading CPE data. See the log for more details.&quot;);</span>
+<span class="nc" id="L326">            LOGGER.info(&quot;IO Error with search string: {}&quot;, searchString, ex);</span>
+<span class="nc" id="L327">        }</span>
+<span class="nc" id="L328">        return null;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Builds a Lucene search string by properly escaping data and constructing
+     * a valid search query.&lt;/p&gt;
+     *
+     * &lt;p&gt;
+     * If either the possibleVendor or possibleProducts lists have been
+     * populated this data is used to add weighting factors to the search string
+     * generated.&lt;/p&gt;
+     *
+     * @param vendor text to search the vendor field
+     * @param product text to search the product field
+     * @param vendorWeighting a list of strings to apply to the vendor to boost
+     * the terms weight
+     * @param productWeightings a list of strings to apply to the product to
+     * boost the terms weight
+     * @return the Lucene query
+     */
+    protected String buildSearch(String vendor, String product,
+            Set&lt;String&gt; vendorWeighting, Set&lt;String&gt; productWeightings) {
+<span class="fc" id="L351">        final String v = vendor; //.replaceAll(&quot;[^\\w\\d]&quot;, &quot; &quot;);</span>
+<span class="fc" id="L352">        final String p = product; //.replaceAll(&quot;[^\\w\\d]&quot;, &quot; &quot;);</span>
+<span class="fc" id="L353">        final StringBuilder sb = new StringBuilder(v.length() + p.length()</span>
+                + Fields.PRODUCT.length() + Fields.VENDOR.length() + STRING_BUILDER_BUFFER);
+
+<span class="pc bpc" id="L356" title="1 of 2 branches missed.">        if (!appendWeightedSearch(sb, Fields.PRODUCT, p, productWeightings)) {</span>
+<span class="nc" id="L357">            return null;</span>
+        }
+<span class="fc" id="L359">        sb.append(&quot; AND &quot;);</span>
+<span class="pc bpc" id="L360" title="1 of 2 branches missed.">        if (!appendWeightedSearch(sb, Fields.VENDOR, v, vendorWeighting)) {</span>
+<span class="nc" id="L361">            return null;</span>
+        }
+<span class="fc" id="L363">        return sb.toString();</span>
+    }
+
+    /**
+     * This method constructs a Lucene query for a given field. The searchText
+     * is split into separate words and if the word is within the list of
+     * weighted words then an additional weighting is applied to the term as it
+     * is appended into the query.
+     *
+     * @param sb a StringBuilder that the query text will be appended to.
+     * @param field the field within the Lucene index that the query is
+     * searching.
+     * @param searchText text used to construct the query.
+     * @param weightedText a list of terms that will be considered higher
+     * importance when searching.
+     * @return if the append was successful.
+     */
+    private boolean appendWeightedSearch(StringBuilder sb, String field, String searchText, Set&lt;String&gt; weightedText) {
+<span class="fc" id="L381">        sb.append(field).append(&quot;:(&quot;);</span>
+
+<span class="fc" id="L383">        final String cleanText = cleanseText(searchText);</span>
+
+<span class="pc bpc" id="L385" title="1 of 2 branches missed.">        if (cleanText.isEmpty()) {</span>
+<span class="nc" id="L386">            return false;</span>
+        }
+
+<span class="fc bfc" id="L389" title="All 4 branches covered.">        if (weightedText == null || weightedText.isEmpty()) {</span>
+<span class="fc" id="L390">            LuceneUtils.appendEscapedLuceneQuery(sb, cleanText);</span>
+        } else {
+<span class="fc" id="L392">            boolean addSpace = false;</span>
+<span class="fc" id="L393">            final StringTokenizer tokens = new StringTokenizer(cleanText);</span>
+<span class="fc bfc" id="L394" title="All 2 branches covered.">            while (tokens.hasMoreElements()) {</span>
+<span class="fc" id="L395">                final String word = tokens.nextToken();</span>
+<span class="fc" id="L396">                StringBuilder temp = null;</span>
+<span class="fc bfc" id="L397" title="All 2 branches covered.">                for (String weighted : weightedText) {</span>
+<span class="fc" id="L398">                    final String weightedStr = cleanseText(weighted);</span>
+<span class="fc bfc" id="L399" title="All 2 branches covered.">                    if (equalsIgnoreCaseAndNonAlpha(word, weightedStr)) {</span>
+<span class="fc" id="L400">                        temp = new StringBuilder(word.length() + 2);</span>
+<span class="fc" id="L401">                        LuceneUtils.appendEscapedLuceneQuery(temp, word);</span>
+<span class="fc" id="L402">                        temp.append(WEIGHTING_BOOST);</span>
+<span class="fc bfc" id="L403" title="All 2 branches covered.">                        if (!word.equalsIgnoreCase(weightedStr)) {</span>
+<span class="pc bpc" id="L404" title="1 of 2 branches missed.">                            if (temp.length() &gt; 0) {</span>
+<span class="fc" id="L405">                                temp.append(' ');</span>
+                            }
+<span class="fc" id="L407">                            LuceneUtils.appendEscapedLuceneQuery(temp, weightedStr);</span>
+<span class="fc" id="L408">                            temp.append(WEIGHTING_BOOST);</span>
+                        }
+                        break;
+                    }
+<span class="fc" id="L412">                }</span>
+<span class="fc bfc" id="L413" title="All 2 branches covered.">                if (addSpace) {</span>
+<span class="fc" id="L414">                    sb.append(' ');</span>
+                } else {
+<span class="fc" id="L416">                    addSpace = true;</span>
+                }
+<span class="fc bfc" id="L418" title="All 2 branches covered.">                if (temp == null) {</span>
+<span class="fc" id="L419">                    LuceneUtils.appendEscapedLuceneQuery(sb, word);</span>
+                } else {
+<span class="fc" id="L421">                    sb.append(temp);</span>
+                }
+<span class="fc" id="L423">            }</span>
+        }
+<span class="fc" id="L425">        sb.append(&quot;)&quot;);</span>
+<span class="fc" id="L426">        return true;</span>
+    }
+
+    /**
+     * Removes characters from the input text that are not used within the CPE
+     * index.
+     *
+     * @param text is the text to remove the characters from.
+     * @return the text having removed some characters.
+     */
+    private String cleanseText(String text) {
+<span class="fc" id="L437">        return text.replaceAll(CLEANSE_CHARACTER_RX, &quot; &quot;);</span>
+    }
+
+    /**
+     * Compares two strings after lower casing them and removing the non-alpha
+     * characters.
+     *
+     * @param l string one to compare.
+     * @param r string two to compare.
+     * @return whether or not the two strings are similar.
+     */
+    private boolean equalsIgnoreCaseAndNonAlpha(String l, String r) {
+<span class="pc bpc" id="L449" title="2 of 4 branches missed.">        if (l == null || r == null) {</span>
+<span class="nc" id="L450">            return false;</span>
+        }
+
+<span class="fc" id="L453">        final String left = l.replaceAll(CLEANSE_NONALPHA_RX, &quot;&quot;);</span>
+<span class="fc" id="L454">        final String right = r.replaceAll(CLEANSE_NONALPHA_RX, &quot;&quot;);</span>
+<span class="fc" id="L455">        return left.equalsIgnoreCase(right);</span>
+    }
+
+    /**
+     * Ensures that the CPE Identified matches the dependency. This validates
+     * that the product, vendor, and version information for the CPE are
+     * contained within the dependencies evidence.
+     *
+     * @param entry a CPE entry.
+     * @param dependency the dependency that the CPE entries could be for.
+     * @return whether or not the entry is valid.
+     */
+    private boolean verifyEntry(final IndexEntry entry, final Dependency dependency) {
+<span class="fc" id="L468">        boolean isValid = false;</span>
+
+        //TODO - does this nullify some of the fuzzy matching that happens in the lucene search?
+        // for instance CPE some-component and in the evidence we have SomeComponent.
+<span class="fc bfc" id="L472" title="All 4 branches covered.">        if (collectionContainsString(dependency.getEvidence(EvidenceType.PRODUCT), entry.getProduct())</span>
+                &amp;&amp; collectionContainsString(dependency.getEvidence(EvidenceType.VENDOR), entry.getVendor())) {
+            //&amp;&amp; collectionContainsVersion(dependency.getVersionEvidence(), entry.getVersion())
+<span class="fc" id="L475">            isValid = true;</span>
+        }
+<span class="fc" id="L477">        return isValid;</span>
+    }
+
+    /**
+     * Used to determine if the EvidenceCollection contains a specific string.
+     *
+     * @param evidence an of evidence object to check
+     * @param text the text to search for
+     * @return whether or not the EvidenceCollection contains the string
+     */
+    private boolean collectionContainsString(Set&lt;Evidence&gt; evidence, String text) {
+        //TODO - likely need to change the split... not sure if this will work for CPE with special chars
+<span class="pc bpc" id="L489" title="1 of 2 branches missed.">        if (text == null) {</span>
+<span class="nc" id="L490">            return false;</span>
+        }
+<span class="fc" id="L492">        final String[] words = text.split(&quot;[\\s_-]&quot;);</span>
+<span class="fc" id="L493">        final List&lt;String&gt; list = new ArrayList&lt;&gt;();</span>
+<span class="fc" id="L494">        String tempWord = null;</span>
+<span class="fc" id="L495">        final CharArraySet stopWords = SearchFieldAnalyzer.getStopWords();</span>
+<span class="fc bfc" id="L496" title="All 2 branches covered.">        for (String word : words) {</span>
+<span class="fc bfc" id="L497" title="All 2 branches covered.">            if (stopWords.contains(word)) {</span>
+<span class="fc" id="L498">                continue;</span>
+            }
+            /*
+             single letter words should be concatenated with the next word.
+             so { &quot;m&quot;, &quot;core&quot;, &quot;sample&quot; } -&gt; { &quot;mcore&quot;, &quot;sample&quot; }
+             */
+<span class="fc bfc" id="L504" title="All 2 branches covered.">            if (tempWord != null) {</span>
+<span class="fc" id="L505">                list.add(tempWord + word);</span>
+<span class="fc" id="L506">                tempWord = null;</span>
+<span class="fc bfc" id="L507" title="All 2 branches covered.">            } else if (word.length() &lt;= 2) {</span>
+<span class="fc" id="L508">                tempWord = word;</span>
+            } else {
+<span class="fc" id="L510">                list.add(word);</span>
+            }
+        }
+<span class="fc bfc" id="L513" title="All 2 branches covered.">        if (tempWord != null) {</span>
+<span class="fc bfc" id="L514" title="All 2 branches covered.">            if (!list.isEmpty()) {</span>
+<span class="fc" id="L515">                final String tmp = list.get(list.size() - 1) + tempWord;</span>
+<span class="fc" id="L516">                list.add(tmp);</span>
+<span class="fc" id="L517">            } else {</span>
+<span class="fc" id="L518">                list.add(tempWord);</span>
+            }
+        }
+<span class="pc bpc" id="L521" title="1 of 2 branches missed.">        if (list.isEmpty()) {</span>
+<span class="nc" id="L522">            return false;</span>
+        }
+<span class="fc" id="L524">        boolean isValid = true;</span>
+<span class="fc bfc" id="L525" title="All 2 branches covered.">        for (String word : list) {</span>
+<span class="fc" id="L526">            boolean found = false;</span>
+<span class="fc bfc" id="L527" title="All 2 branches covered.">            for (Evidence e : evidence) {</span>
+<span class="fc bfc" id="L528" title="All 2 branches covered.">                if (e.getValue().toLowerCase().contains(word.toLowerCase())) {</span>
+<span class="fc bfc" id="L529" title="All 4 branches covered.">                    if (&quot;http&quot;.equals(word) &amp;&amp; e.getValue().contains(&quot;http:&quot;)) {</span>
+<span class="fc" id="L530">                        continue;</span>
+                    }
+<span class="fc" id="L532">                    found = true;</span>
+<span class="fc" id="L533">                    break;</span>
+                }
+<span class="fc" id="L535">            }</span>
+<span class="fc" id="L536">            isValid &amp;= found;</span>
+<span class="fc bfc" id="L537" title="All 2 branches covered.">            if (!isValid) {</span>
+<span class="fc" id="L538">                break;</span>
+            }
+<span class="fc" id="L540">        }</span>
+<span class="fc" id="L541">        return isValid;</span>
+    }
+
+    /**
+     * Analyzes a dependency and attempts to determine if there are any CPE
+     * identifiers for this dependency.
+     *
+     * @param dependency The Dependency to analyze.
+     * @param engine The analysis engine
+     * @throws AnalysisException is thrown if there is an issue analyzing the
+     * dependency.
+     */
+    @Override
+    protected void analyzeDependency(Dependency dependency, Engine engine) throws AnalysisException {
+<span class="fc bfc" id="L555" title="All 2 branches covered.">        if (skipEcosystems.contains(dependency.getEcosystem())) {</span>
+<span class="fc" id="L556">            return;</span>
+        }
+        try {
+<span class="fc" id="L559">            determineCPE(dependency);</span>
+<span class="nc" id="L560">        } catch (CorruptIndexException ex) {</span>
+<span class="nc" id="L561">            throw new AnalysisException(&quot;CPE Index is corrupt.&quot;, ex);</span>
+<span class="nc" id="L562">        } catch (IOException ex) {</span>
+<span class="nc" id="L563">            throw new AnalysisException(&quot;Failure opening the CPE Index.&quot;, ex);</span>
+<span class="nc" id="L564">        } catch (ParseException ex) {</span>
+<span class="nc" id="L565">            throw new AnalysisException(&quot;Unable to parse the generated Lucene query for this dependency.&quot;, ex);</span>
+<span class="fc" id="L566">        }</span>
+<span class="fc" id="L567">    }</span>
+
+    /**
+     * Retrieves a list of CPE values from the CveDB based on the vendor and
+     * product passed in. The list is then validated to find only CPEs that are
+     * valid for the given dependency. It is possible that the CPE identified is
+     * a best effort &quot;guess&quot; based on the vendor, product, and version
+     * information.
+     *
+     * @param dependency the Dependency being analyzed
+     * @param vendor the vendor for the CPE being analyzed
+     * @param product the product for the CPE being analyzed
+     * @param currentConfidence the current confidence being used during
+     * analysis
+     * @return &lt;code&gt;true&lt;/code&gt; if an identifier was added to the dependency;
+     * otherwise &lt;code&gt;false&lt;/code&gt;
+     * @throws UnsupportedEncodingException is thrown if UTF-8 is not supported
+     */
+    protected boolean determineIdentifiers(Dependency dependency, String vendor, String product,
+            Confidence currentConfidence) throws UnsupportedEncodingException {
+<span class="fc" id="L587">        final Set&lt;VulnerableSoftware&gt; cpes = cve.getCPEs(vendor, product);</span>
+<span class="pc bpc" id="L588" title="1 of 2 branches missed.">        if (cpes.isEmpty()) {</span>
+<span class="nc" id="L589">            return false;</span>
+        }
+<span class="fc" id="L591">        DependencyVersion bestGuess = new DependencyVersion(&quot;-&quot;);</span>
+<span class="fc" id="L592">        Confidence bestGuessConf = null;</span>
+<span class="fc" id="L593">        boolean hasBroadMatch = false;</span>
+<span class="fc" id="L594">        final List&lt;IdentifierMatch&gt; collected = new ArrayList&lt;&gt;();</span>
+
+        //TODO the following algorithm incorrectly identifies things as a lower version
+        // if there lower confidence evidence when the current (highest) version number
+        // is newer then anything in the NVD.
+<span class="fc bfc" id="L599" title="All 2 branches covered.">        for (Confidence conf : Confidence.values()) {</span>
+<span class="fc bfc" id="L600" title="All 2 branches covered.">            for (Evidence evidence : dependency.getIterator(EvidenceType.VERSION, conf)) {</span>
+<span class="fc" id="L601">                final DependencyVersion evVer = DependencyVersionUtil.parseVersion(evidence.getValue());</span>
+<span class="fc bfc" id="L602" title="All 2 branches covered.">                if (evVer == null) {</span>
+<span class="fc" id="L603">                    continue;</span>
+                }
+<span class="fc bfc" id="L605" title="All 2 branches covered.">                for (VulnerableSoftware vs : cpes) {</span>
+                    DependencyVersion dbVer;
+<span class="pc bpc" id="L607" title="1 of 4 branches missed.">                    if (vs.getUpdate() != null &amp;&amp; !vs.getUpdate().isEmpty()) {</span>
+<span class="fc" id="L608">                        dbVer = DependencyVersionUtil.parseVersion(vs.getVersion() + '.' + vs.getUpdate());</span>
+                    } else {
+<span class="fc" id="L610">                        dbVer = DependencyVersionUtil.parseVersion(vs.getVersion());</span>
+                    }
+<span class="fc bfc" id="L612" title="All 2 branches covered.">                    if (dbVer == null) { //special case, no version specified - everything is vulnerable</span>
+<span class="fc" id="L613">                        hasBroadMatch = true;</span>
+<span class="fc" id="L614">                        final String url = String.format(NVD_SEARCH_URL, URLEncoder.encode(vs.getName(), &quot;UTF-8&quot;));</span>
+<span class="fc" id="L615">                        final IdentifierMatch match = new IdentifierMatch(&quot;cpe&quot;, vs.getName(), url, IdentifierConfidence.BROAD_MATCH, conf);</span>
+<span class="fc" id="L616">                        collected.add(match);</span>
+<span class="fc bfc" id="L617" title="All 2 branches covered.">                    } else if (evVer.equals(dbVer)) { //yeah! exact match</span>
+<span class="fc" id="L618">                        final String url = String.format(NVD_SEARCH_URL, URLEncoder.encode(vs.getName(), &quot;UTF-8&quot;));</span>
+<span class="fc" id="L619">                        final IdentifierMatch match = new IdentifierMatch(&quot;cpe&quot;, vs.getName(), url, IdentifierConfidence.EXACT_MATCH, conf);</span>
+<span class="fc" id="L620">                        collected.add(match);</span>
+
+                        //TODO the following isn't quite right is it? need to think about this guessing game a bit more.
+<span class="fc bfc" id="L623" title="All 4 branches covered.">                    } else if (evVer.getVersionParts().size() &lt;= dbVer.getVersionParts().size()</span>
+                            &amp;&amp; evVer.matchesAtLeastThreeLevels(dbVer)) {
+<span class="pc bpc" id="L625" title="1 of 4 branches missed.">                        if (bestGuessConf == null || bestGuessConf.compareTo(conf) &gt; 0) {</span>
+<span class="pc bpc" id="L626" title="1 of 2 branches missed.">                            if (bestGuess.getVersionParts().size() &lt; dbVer.getVersionParts().size()) {</span>
+<span class="fc" id="L627">                                bestGuess = dbVer;</span>
+<span class="fc" id="L628">                                bestGuessConf = conf;</span>
+                            }
+                        }
+                    }
+<span class="fc" id="L632">                }</span>
+<span class="pc bpc" id="L633" title="2 of 6 branches missed.">                if ((bestGuessConf == null || bestGuessConf.compareTo(conf) &gt; 0)</span>
+                        &amp;&amp; bestGuess.getVersionParts().size() &lt; evVer.getVersionParts().size()) {
+<span class="fc" id="L635">                    bestGuess = evVer;</span>
+<span class="fc" id="L636">                    bestGuessConf = conf;</span>
+                }
+<span class="fc" id="L638">            }</span>
+        }
+<span class="fc" id="L640">        final String cpeName = String.format(&quot;cpe:/a:%s:%s:%s&quot;, vendor, product, bestGuess.toString());</span>
+<span class="fc" id="L641">        String url = null;</span>
+<span class="fc bfc" id="L642" title="All 2 branches covered.">        if (hasBroadMatch) { //if we have a broad match we can add the URL to the best guess.</span>
+<span class="fc" id="L643">            final String cpeUrlName = String.format(&quot;cpe:/a:%s:%s&quot;, vendor, product);</span>
+<span class="fc" id="L644">            url = String.format(NVD_SEARCH_URL, URLEncoder.encode(cpeUrlName, &quot;UTF-8&quot;));</span>
+        }
+<span class="fc bfc" id="L646" title="All 2 branches covered.">        if (bestGuessConf</span>
+                == null) {
+<span class="fc" id="L648">            bestGuessConf = Confidence.LOW;</span>
+        }
+<span class="fc" id="L650">        final IdentifierMatch match = new IdentifierMatch(&quot;cpe&quot;, cpeName, url, IdentifierConfidence.BEST_GUESS, bestGuessConf);</span>
+
+<span class="fc" id="L652">        collected.add(match);</span>
+
+<span class="fc" id="L654">        Collections.sort(collected);</span>
+<span class="fc" id="L655">        final IdentifierConfidence bestIdentifierQuality = collected.get(0).getConfidence();</span>
+<span class="fc" id="L656">        final Confidence bestEvidenceQuality = collected.get(0).getEvidenceConfidence();</span>
+<span class="fc" id="L657">        boolean identifierAdded = false;</span>
+<span class="fc bfc" id="L658" title="All 2 branches covered.">        for (IdentifierMatch m : collected) {</span>
+<span class="fc bfc" id="L659" title="All 4 branches covered.">            if (bestIdentifierQuality.equals(m.getConfidence())</span>
+                    &amp;&amp; bestEvidenceQuality.equals(m.getEvidenceConfidence())) {
+<span class="fc" id="L661">                final Identifier i = m.getIdentifier();</span>
+<span class="fc bfc" id="L662" title="All 2 branches covered.">                if (bestIdentifierQuality == IdentifierConfidence.BEST_GUESS) {</span>
+<span class="fc" id="L663">                    i.setConfidence(Confidence.LOW);</span>
+                } else {
+<span class="fc" id="L665">                    i.setConfidence(bestEvidenceQuality);</span>
+                }
+<span class="fc" id="L667">                dependency.addIdentifier(i);</span>
+<span class="fc" id="L668">                identifierAdded = true;</span>
+            }
+<span class="fc" id="L670">        }</span>
+<span class="fc" id="L671">        return identifierAdded;</span>
+    }
+
+    /**
+     * &lt;p&gt;
+     * Returns the setting key to determine if the analyzer is enabled.&lt;/p&gt;
+     *
+     * @return the key for the analyzer's enabled property
+     */
+    @Override
+    protected String getAnalyzerEnabledSettingKey() {
+<span class="fc" id="L682">        return Settings.KEYS.ANALYZER_CPE_ENABLED;</span>
+
+    }
+
+    /**
+     * The confidence whether the identifier is an exact match, or a best guess.
+     */
+<span class="pc" id="L689">    private enum IdentifierConfidence {</span>
+
+        /**
+         * An exact match for the CPE.
+         */
+<span class="fc" id="L694">        EXACT_MATCH,</span>
+        /**
+         * A best guess for the CPE.
+         */
+<span class="fc" id="L698">        BEST_GUESS,</span>
+        /**
+         * The entire vendor/product group must be added (without a guess at
+         * version) because there is a CVE with a VS that only specifies
+         * vendor/product.
+         */
+<span class="fc" id="L704">        BROAD_MATCH</span>
+    }
+
+    /**
+     * A simple object to hold an identifier and carry information about the
+     * confidence in the identifier.
+     */
+<span class="fc" id="L711">    private static class IdentifierMatch implements Comparable&lt;IdentifierMatch&gt; {</span>
+
+        /**
+         * The confidence in the evidence used to identify this match.
+         */
+        private Confidence evidenceConfidence;
+        /**
+         * The confidence whether this is an exact match, or a best guess.
+         */
+        private IdentifierConfidence confidence;
+        /**
+         * The CPE identifier.
+         */
+        private Identifier identifier;
+
+        /**
+         * Constructs an IdentifierMatch.
+         *
+         * @param type the type of identifier (such as CPE)
+         * @param value the value of the identifier
+         * @param url the URL of the identifier
+         * @param identifierConfidence the confidence in the identifier: best
+         * guess or exact match
+         * @param evidenceConfidence the confidence of the evidence used to find
+         * the identifier
+         */
+<span class="fc" id="L737">        IdentifierMatch(String type, String value, String url, IdentifierConfidence identifierConfidence, Confidence evidenceConfidence) {</span>
+<span class="fc" id="L738">            this.identifier = new Identifier(type, value, url);</span>
+<span class="fc" id="L739">            this.confidence = identifierConfidence;</span>
+<span class="fc" id="L740">            this.evidenceConfidence = evidenceConfidence;</span>
+<span class="fc" id="L741">        }</span>
+
+        //&lt;editor-fold defaultstate=&quot;collapsed&quot; desc=&quot;Property implementations: evidenceConfidence, confidence, identifier&quot;&gt;
+        /**
+         * Get the value of evidenceConfidence
+         *
+         * @return the value of evidenceConfidence
+         */
+        public Confidence getEvidenceConfidence() {
+<span class="fc" id="L750">            return evidenceConfidence;</span>
+        }
+
+        /**
+         * Set the value of evidenceConfidence
+         *
+         * @param evidenceConfidence new value of evidenceConfidence
+         */
+        public void setEvidenceConfidence(Confidence evidenceConfidence) {
+<span class="nc" id="L759">            this.evidenceConfidence = evidenceConfidence;</span>
+<span class="nc" id="L760">        }</span>
+
+        /**
+         * Get the value of confidence.
+         *
+         * @return the value of confidence
+         */
+        public IdentifierConfidence getConfidence() {
+<span class="fc" id="L768">            return confidence;</span>
+        }
+
+        /**
+         * Set the value of confidence.
+         *
+         * @param confidence new value of confidence
+         */
+        public void setConfidence(IdentifierConfidence confidence) {
+<span class="nc" id="L777">            this.confidence = confidence;</span>
+<span class="nc" id="L778">        }</span>
+
+        /**
+         * Get the value of identifier.
+         *
+         * @return the value of identifier
+         */
+        public Identifier getIdentifier() {
+<span class="fc" id="L786">            return identifier;</span>
+        }
+
+        /**
+         * Set the value of identifier.
+         *
+         * @param identifier new value of identifier
+         */
+        public void setIdentifier(Identifier identifier) {
+<span class="nc" id="L795">            this.identifier = identifier;</span>
+<span class="nc" id="L796">        }</span>
+        //&lt;/editor-fold&gt;
+        //&lt;editor-fold defaultstate=&quot;collapsed&quot; desc=&quot;Standard implementations of toString, hashCode, and equals&quot;&gt;
+
+        /**
+         * Standard toString() implementation.
+         *
+         * @return the string representation of the object
+         */
+        @Override
+        public String toString() {
+<span class="nc" id="L807">            return &quot;IdentifierMatch{&quot; + &quot;evidenceConfidence=&quot; + evidenceConfidence</span>
+                    + &quot;, confidence=&quot; + confidence + &quot;, identifier=&quot; + identifier + '}';
+        }
+
+        /**
+         * Standard hashCode() implementation.
+         *
+         * @return the hashCode
+         */
+        @Override
+        public int hashCode() {
+<span class="nc" id="L818">            int hash = 5;</span>
+<span class="nc bnc" id="L819" title="All 2 branches missed.">            hash = 97 * hash + (this.evidenceConfidence != null ? this.evidenceConfidence.hashCode() : 0);</span>
+<span class="nc bnc" id="L820" title="All 2 branches missed.">            hash = 97 * hash + (this.confidence != null ? this.confidence.hashCode() : 0);</span>
+<span class="nc bnc" id="L821" title="All 2 branches missed.">            hash = 97 * hash + (this.identifier != null ? this.identifier.hashCode() : 0);</span>
+<span class="nc" id="L822">            return hash;</span>
+        }
+
+        /**
+         * Standard equals implementation.
+         *
+         * @param obj the object to compare
+         * @return true if the objects are equal, otherwise false
+         */
+        @Override
+        public boolean equals(Object obj) {
+<span class="nc bnc" id="L833" title="All 2 branches missed.">            if (obj == null) {</span>
+<span class="nc" id="L834">                return false;</span>
+            }
+<span class="nc bnc" id="L836" title="All 2 branches missed.">            if (getClass() != obj.getClass()) {</span>
+<span class="nc" id="L837">                return false;</span>
+            }
+<span class="nc" id="L839">            final IdentifierMatch other = (IdentifierMatch) obj;</span>
+<span class="nc bnc" id="L840" title="All 2 branches missed.">            if (this.evidenceConfidence != other.evidenceConfidence) {</span>
+<span class="nc" id="L841">                return false;</span>
+            }
+<span class="nc bnc" id="L843" title="All 2 branches missed.">            if (this.confidence != other.confidence) {</span>
+<span class="nc" id="L844">                return false;</span>
+            }
+<span class="nc bnc" id="L846" title="All 6 branches missed.">            return !(this.identifier != other.identifier &amp;&amp; (this.identifier == null || !this.identifier.equals(other.identifier)));</span>
+        }
+        //&lt;/editor-fold&gt;
+
+        /**
+         * Standard implementation of compareTo that compares identifier
+         * confidence, evidence confidence, and then the identifier.
+         *
+         * @param o the IdentifierMatch to compare to
+         * @return the natural ordering of IdentifierMatch
+         */
+        @Override
+        public int compareTo(IdentifierMatch o) {
+<span class="fc" id="L859">            return new CompareToBuilder()</span>
+                    .append(confidence, o.confidence)
+                    .append(evidenceConfidence, o.evidenceConfidence)
+                    .append(identifier, o.identifier)
+                    .toComparison();
+        }
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.7.9.201702052155</span></div></body></html>

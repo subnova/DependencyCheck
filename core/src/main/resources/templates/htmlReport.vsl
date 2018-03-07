@@ -17,9 +17,7 @@ Copyright (c) 2012 Jeremy Long. All Rights Reserved.
 
 @author Jeremy Long <jeremy.long@owasp.org>
 @version 1.2
-*#
-
-
+*###
 #[[
 <!DOCTYPE html>
 <html>
@@ -582,502 +580,502 @@ arising out of or in connection with the use of this tool, the analysis performe
 <a href="http://jeremylong.github.io/DependencyCheck/general/suppression.html" target="_blank">Suppressing false positives</a> |
 Getting Help: <a href="https://groups.google.com/forum/#!forum/dependency-check" target="_blank">google group</a> | 
 <a href="https://github.com/jeremylong/DependencyCheck/issues" target="_blank">github issues</a></h3>
-]]#
-            <h2 class="">Project:&nbsp;$enc.html($applicationName)</h2>
-            #if ($groupID && $artifactID && $applicationVersion)
-            <h4>$enc.html($groupID):$enc.html($artifactID):$enc.html($applicationVersion)</h4>
-            #end
-            <div class="">
-                #set($depCount=$dependencies.size())
-                #set($vulnDepCount=0)
-                #set($vulnCount=0)
-                #set($vulnSuppressedCount=0)
-                #set($cpeSuppressedCount=0)
-
-                #foreach($dependency in $dependencies)
-                    #set($depCount=$depCount+$dependency.getRelatedDependencies().size())
-                    #if($dependency.getVulnerabilities().size()>0)
-                        #set($vulnDepCount=$vulnDepCount+1)
-                        #set($vulnCount=$vulnCount+$dependency.getVulnerabilities().size())
-                    #end
-                    #if($dependency.getSuppressedIdentifiers().size()>0)
-                        #set($cpeSuppressedCount=$cpeSuppressedCount+1)
-                    #end
-                    #if($dependency.getSuppressedVulnerabilities().size()>0)
-                        #set($vulnSuppressedCount=$vulnSuppressedCount+$dependency.getSuppressedVulnerabilities().size())
-                    #end
-                #end
-                Scan Information (<a href="#" title="Click to toggle display" onclick="return toggleDisplay(this, '.scaninfo', 'show all', 'show less');  return false;">show all</a>):<br/>
-                    <ul class="indent">
-                        <li><i>dependency-check version</i>: $version</li>
-                        <li><i>Report Generated On</i>: $scanDate</li>
-                        <li><i>Dependencies Scanned</i>:&nbsp;$depCount ($dependencies.size() unique)</li>
-                        <li><i>Vulnerable Dependencies</i>:&nbsp;<span id="vulnerableCount">$vulnDepCount</span></li>
-                        <li><i>Vulnerabilities Found</i>:&nbsp;$vulnCount</li>
-                        <li><i>Vulnerabilities Suppressed</i>:&nbsp;$vulnSuppressedCount</li>
-                        <li class="scaninfo">...</li>
-                        #foreach($prop in $properties.getMetaData().entrySet())
-                        <li class="scaninfo hidden"><i>$enc.html($prop.key)</i>: $enc.html($prop.value)</li>
-                        #end
-                    </ul><br/>
-                Display:&nbsp;<a href="#" title="Click to toggle display" onclick="return toggleDisplay(this, '.notvulnerable', 'Showing Vulnerable Dependencies (click to show all)', 'Showing All Dependencies (click to show less)'); return false;">Showing Vulnerable Dependencies (click to show all)</a><br/><br/>
-                #set($lnkcnt=0)
-                <table id="summaryTable" class="lined">
-                    <thead><tr style="text-align:left">
-                        <th class="sortable" data-sort="string" title="The name of the dependency">Dependency</th>
-                        <th class="sortable" data-sort="string" title="The Common Platform Enumeration">CPE</th>
-                        <th class="sortable" data-sort="string" title="The Build Coordinates">Coordinates</th>
-                        <th class="sortable" data-sort="int" title="The highest CVE Severity">Highest Severity</th>
-                        <th class="sortable" data-sort="int" title="The number of Common Vulnerability and Exposure (CVE) entries">CVE Count</th>
-                        <th class="sortable" data-sort="string" title="The confidence rating dependency-check has for the identified CPE">CPE Confidence</th>
-                        <th class="sortable" data-sort="int" title="The count of evidence collected to identify the CPE">Evidence Count</th>
-                    </tr></thead>
-                    #foreach($dependency in $dependencies)
-                    #set($lnkcnt=$lnkcnt+1)
-                    <tr class="#if($dependency.getVulnerabilities().size()==0)notvulnerable#else vulnerable#end">
-                        <td data-sort-value="$enc.html($dependency.DisplayFileName.toUpperCase())"><a href="#l${lnkcnt}_$enc.html($enc.url($dependency.Sha1sum))">$enc.html($dependency.DisplayFileName)</a></td>
-                        #set($mavenlink="")
-                        #set($cpeIdCount=0)
-                        #set($cpeIdConf="")
-                        #set($sortValue="")
-                        #foreach($id in $dependency.getIdentifiers())
-                            #if ($id.type!="maven" && $id.type!="npm")
-                                #set($sortValue=$sortValue+$id.value)
-                            #end
-                        #end
-                        <td data-sort-value="$sortValue">
-                        #set($sortValue="")
-                        #set($cpeSort=0)
-                        #foreach($id in $dependency.getIdentifiers())
-                            #if ($id.type=="maven" || $id.type=="npm")
-                                #if ($mavenlink=="" || !$mavenlink.url)
-                                    #set($mavenlink=$id)
-                                #end
-                            #else
-                                #if ($cpeIdCount>=1)
-                                    <br/>
-                                #end
-                                #if( $id.url )
-                                    <a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>
-                                #else
-                                    $enc.html($id.value)
-                                #end
-                                #if ($cpeIdConf == "")
-                                    #set($cpeIdConf=$id.confidence)
-                                    #set($cpeSort=$id.confidence.ordinal())
-                                #elseif ($cpeIdConf.compareTo($id.confidence)>0)
-                                    #set($cpeIdConf=$id.confidence)
-                                    #set($cpeSort=$id.confidence.ordinal())
-                                #end
-                                #set($cpeIdCount=$cpeIdCount+1)
-                            #end
-                        #end
-                        </td>
-                        #if ($mavenlink=="")
-                        <td data-sort-value="">
-                        #else
-                        <td data-sort-value="$enc.html($mavenlink.value.toLowerCase())">#if( $mavenlink.url )
-                            ##yes, we are HTML Encoding the href. This is okay. We can't URL encode as we have to trust the analyzer here...
-                            <a href="$enc.html($mavenlink.url)" target="_blank">$enc.html($mavenlink.value)</a>&nbsp;<span title="verified from repo" style="color:green">&#x2713;</span>
-                        #elseif ($mavenlink.value)
-                            $enc.html($mavenlink.value)
-                        #end
-                        #end</td>
-                        #set($cveImpact=-1)
-                        #foreach($vuln in $dependency.getVulnerabilities())
-                            #if ($cveImpact<$vuln.cvssScore)
-                                #set($cveImpact=$vuln.cvssScore)
-                            #end
-                        #end
-                        #set($sortValue=$cveImpact*10)
-                        <td data-sort-value="$sortValue">
-                        #if ($cveImpact<0)
-                            &nbsp;
-                        #elseif ($cveImpact<4.0)
-                            Low
-                        #elseif ($cveImpact>=7.0)
-                            High
-                        #else
-                            Medium
-                        #end
-                        </td>
-                        <td>$dependency.getVulnerabilities().size()</td>
-                        <td data-sort-value="$cpeSort">$WordUtils.capitalizeFully($cpeIdConf.toString())</td>
-                        <td>$dependency.size()</td>
-                    </tr>
-                    #end
-                </table>
-                <h2>Dependencies</h2>
-                #set($lnkcnt=0)
-                #set($cnt=0)
-                #set($vsctr=0) ##counter to create unique groups for vulnerable software
-                #foreach($dependency in $dependencies)
-                    #set($lnkcnt=$lnkcnt+1)
-                    <h3 class="subsectionheader standardsubsection#if($dependency.getVulnerabilities().size()==0) notvulnerable#end"><a name="l${lnkcnt}_$enc.html($dependency.Sha1sum)"></a>$enc.html($dependency.DisplayFileName)</h3>
-                    <div class="subsectioncontent#if($dependency.getVulnerabilities().size()==0) notvulnerable#end">
-                        #if ($dependency.description)
-                            <p><b>Description:</b>&nbsp;$enc.html($dependency.description)<br/></p>
-                        #end
-                        <p>
-                        #if ($dependency.license)
-                            #if ($dependency.license.startsWith("http://"))
-                            <b>License:</b><pre class="indent"><a href="$enc.html($dependency.license)">$enc.html($dependency.license)</a></pre>
-                            #else
-                            <b>License:</b><pre class="indent">$enc.html($dependency.license)</pre>
-                            #end
-                        #end
-                            <b>File&nbsp;Path:</b>&nbsp;$enc.html($dependency.FilePath)<br/>
-                            <b>MD5:</b>&nbsp;$enc.html($dependency.Md5sum)<br/>
-                            <b>SHA1:</b>&nbsp;$enc.html($dependency.Sha1sum)
-                            #if ($dependency.projectReferences.size()==1)
-                                <br/><b>Referenced In Project/Scope:</b>
-                                #foreach($ref in $dependency.projectReferences)
-                                    $enc.html($ref)
-                                #end
-                            #end
-                            #if ($dependency.projectReferences.size()>1)
-                                <br/><b>Referenced In Projects/Scopes:</b><ul>
-                                #foreach($ref in $dependency.projectReferences)
-                                    <li>$enc.html($ref)</li>
-                                #end
-                                </ul>
-                            #end
-                        </p>
-                        #set($cnt=$cnt+1)
-                        <h4 id="header$cnt" class="subsectionheader expandable expandablesubsection white">Evidence</h4>
-                        <div id="content$cnt" class="subsectioncontent standardsubsection hidden">
-                            <table class="lined fullwidth" border="0">
-                                <tr><th class="left" style="width:10%;">Type</th><th class="left" style="width:10%;">Source</th><th class="left" style="width:20%;">Name</th><th class="left" style="width:50%;">Value</th><th class="left" style="width:10%;">Confidence</th></tr>
-                                #foreach($evidence in $dependency.getEvidence($VENDOR))
-                                    <tr><td>Vendor</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>
-                                #end
-                                #foreach($evidence in $dependency.getEvidence($PRODUCT))
-                                    <tr><td>Product</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>
-                                #end
-                                #foreach($evidence in $dependency.getEvidence($VERSION))
-                                    <tr><td>Version</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>
-                                #end
-                            </table>
-                        </div>
-                        #if($dependency.getRelatedDependencies().size()>0)
-                            #set($cnt=$cnt+1)
-                            <h4 id="header$cnt" class="subsectionheader expandable expandablesubsection white">Related Dependencies</h4>
-                            <div id="content$cnt" class="subsectioncontent standardsubsection hidden">
-                            <ul>
-                            #foreach($related in $dependency.getRelatedDependencies())
-                                <li>$enc.html($related.DisplayFileName)
-                                    <ul>
-                                        <li>File Path:&nbsp;$enc.html($related.FilePath)</li>
-                                        <li>SHA1:&nbsp;#if($related.Sha1sum)$enc.html($related.Sha1sum)#end</li>
-                                        <li>MD5:&nbsp;#if($related.Md5sum)$enc.html($related.Md5sum)#end</li>
-                                        #foreach($id in $related.getIdentifiers())
-                                            #if( $id.url )                                                
-                                                #if ($id.type=="maven")
-                                                    ##yes, we are HTML Encoding the href. this is okay. We can't URL encode as we have to trust the analyzer here...
-                                                    <li>$enc.html($id.type):&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>&nbsp;<span title="verified from repo" style="color:green">&#x2713;</span>
-                                                #else
-                                                    <li>$enc.html($id.type):&nbsp;$enc.html($id.value)
-                                                #end
-                                                </li>
-                                            #end
-                                            #if ($id.type=="npm")
-                                                <li>$enc.html($id.value)</li>
-                                            #end
-                                        #end
-                                     </ul>
-                                </li>
-                            #end
-                            </ul>
-                            </div>
-                        #end
-                        #set($cnt=$cnt+1)
-                        #set($cpeCount=0)
-                        #foreach($id in $dependency.getIdentifiers())
-                            #if($id.type.equals("cpe"))
-                                #set($cpeCount=$cpeCount+1)
-                            #end
-                        #end
-                        <h4 id="header$cnt" class="subsectionheader white">Identifiers</h4>
-                        ##:&nbsp;<a href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($cpevalue)" target="_blank">$enc.html($cpevalue)</a></h4>
-                        <div id="content$cnt" class="subsectioncontent standardsubsection">
-                        #if ($dependency.getIdentifiers().size()==0)
-                            <ul><li><b>None</b></li></ul>
-                        #else ## ($dependency.getIdentifiers().size()>0)
-                            <ul>
-                            #set($suppressGav='')    
-                            #foreach($id in $dependency.getIdentifiers())
-                                #if ($id.type=="maven")
-                                    #set($suppressGav=$id.value)    
-                                #end
-                            #end
-                            #foreach($id in $dependency.getIdentifiers())
-                                #if( $id.url )
-                                    #if($id.type=="maven")
-                                    ##yes, we are HTML Encoding the href. this is okay. We can't URL encode as we have to trust the analyzer here...
-                                    <li><b>$enc.html($id.type):</b>&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>&nbsp;<span title="verified from repo" style="color:green">&#x2713;</span>
-                                    #else
-                                    <li><b>$enc.html($id.type):</b>&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>
-                                    #end
-                                #else
-                                    <li><b>$enc.html($id.type):</b>&nbsp;$enc.html($id.value)
-                                #end
-                                #if ($id.confidence)
-                                    &nbsp;&nbsp;<i>Confidence</i>:$WordUtils.capitalizeFully($id.confidence.toString())
-                                #end
-                                #if ($id.type=="cpe")
-                                    &nbsp;&nbsp;<button class="copybutton" title="Generate Suppression XML for this CPE for this file" onclick="copyText('$enc.javascript($dependency.DisplayFileName)', '$enc.javascript($dependency.Sha1sum)', '$enc.javascript($suppressGav)', 'cpe', '$enc.javascript($id.value)')">suppress</button>
-                                #end
-                                #if ($id.description || $id.notes)
-                                    <ul>
-                                    #if ($id.description)
-                                        <li>Description: $enc.html($id.description)</li>
-                                    #end
-                                    #if ($id.notes)
-                                        <li>Notes: $enc.xml($id.notes)</li>
-                                    #end
-                                    </ul>
-                                #end
-                                </li>
-                            #end
-                            </ul>
-                        #end
-                        </div>
-                    #if($dependency.getVulnerabilities().size()>0)
-                    #set($cnt=$cnt+1)
-                    <h4 id="header$cnt" class="subsectionheader expandable collaspablesubsection white">Published Vulnerabilities</h4>
-                    <div id="content$cnt" class="subsectioncontent standardsubsection">
-                        #foreach($vuln in $dependency.getVulnerabilities(true))
-                            #set($vsctr=$vsctr+1)
-                            #if($vuln.getSource().name().equals("NVD"))
-                                <p><b><a target="_blank" href="http://web.nvd.nist.gov/view/vuln/detail?vulnId=$enc.url($vuln.name)">$enc.html($vuln.name)</a></b>&nbsp;&nbsp;<button class="copybutton" title="Generate Suppression XML for this CCE for this file" onclick="copyText('$enc.javascript($dependency.DisplayFileName)', '$enc.javascript($dependency.Sha1sum)', '$enc.javascript($suppressGav)', 'cve', '$enc.javascript($vuln.name)')">suppress</button></p>
-                            #elseif($vuln.getSource().name().equals("NSP"))
-                                <p><b><a target="_blank" href="https://nodesecurity.io/advisories/$enc.url($vuln.name)">NSP-$enc.html($vuln.name)</a></b></p>
-                            #end
-                            <p>Severity:
-                            #if ($vuln.cvssScore<4.0)
-                                Low
-                            #elseif ($vuln.cvssScore>=7.0)
-                                High
-                            #else
-                                Medium
-                            #end
-                            <br/>CVSS Score: $vuln.cvssScore
-                            #if ($vuln.getSource().name().equals("NVD"))
-                                <!-- todo: temp workaround as NSP uses CVSSv3 and supplies the full vector -->
-                                (AV:$enc.html($vuln.cvssAccessVector.substring(0,1))/AC:$enc.html($vuln.cvssAccessComplexity.substring(0,1))/Au:$enc.html($vuln.cvssAuthentication.substring(0,1))/C:$enc.html($vuln.cvssConfidentialityImpact.substring(0,1))/I:$enc.html($vuln.cvssIntegrityImpact.substring(0,1))/A:$enc.html($vuln.cvssAvailabilityImpact.substring(0,1)))
-                            #end
-                            #if ($vuln.cwe)
-                                <br/>CWE: $vuln.cwe
-                            #end
-                            #if ($vuln.notes)
-                                <br/>Notes: $enc.html($vuln.notes)
-                            #end</p>
-                            <p>$enc.html($vuln.description)
-                            #if ($vuln.getReferences().size()>0)
-                                <ul>
-                                #foreach($ref in $vuln.getReferences(true))
-                                    <li>$enc.html($ref.source) - <a target="_blank" href="$enc.html($ref.url)">$ref.name</a></li>
-                                #end
-                                </ul>
-                            #end
-                            </p>
-
-                            #if ($vuln.getSource().name().equals("NVD"))
-                                #if ($vuln.getVulnerableSoftware().size()<2)
-                                    <p>Vulnerable Software &amp; Versions:<ul>
-                                        <li class="vs$vsctr"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vuln.matchedCPE)">$enc.html($vuln.matchedCPE)</a> #if($vuln.hasMatchedAllPreviousCPE()) and all previous versions#end</li>
-                                    </ul></p>
-                                #else
-                                    <p>Vulnerable Software &amp; Versions:&nbsp;(<a href="#" onclick="return toggleDisplay(this,'.vs$vsctr', 'show all', 'show less');">show all</a>)<ul>
-                                        <li class="vs$vsctr"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vuln.matchedCPE)">$enc.html($vuln.matchedCPE)</a> #if($vuln.hasMatchedAllPreviousCPE()) and all previous versions#end</li>
-                                        <li class="vs$vsctr">...</li>
-                                    #foreach($vs in $vuln.getVulnerableSoftware(true))
-                                        <li class="vs$vsctr hidden"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vs.name)">$enc.html($vs.name)</a> #if($vs.hasPreviousVersion()) and all previous versions#end</li>
-                                    #end
-                                    </ul></p>
-                                #end
-                            #elseif ($vuln.getSource().name().equals("NSP"))
-                                <p>Vulnerable Software &amp; Versions:
-                                    <ul>
-                                    #foreach($vs in $vuln.getVulnerableSoftware())
-                                        <li class="vs$vsctr">$enc.html($vs.name)</li>
-                                    #end
-                                    </ul>
-                                </p>
-                            #end
-                        #end
-                    </div>
-                    #end
-                </div>
-                #end
-
-
-
+]]###
+#**     *#<h2 class="">Project:&nbsp;$enc.html($applicationName)</h2>##
+#**     *##if ($groupID && $artifactID && $applicationVersion)##
+#**     *#<h4>$enc.html($groupID):$enc.html($artifactID):$enc.html($applicationVersion)</h4>##
+#**     *##end##
+#**     *#<div class="">##
+#**         *##set($depCount=$dependencies.size())##
+#**         *##set($vulnDepCount=0)##
+#**         *##set($vulnCount=0)##
+#**         *##set($vulnSuppressedCount=0)##
+#**         *##set($cpeSuppressedCount=0)##
+##
+#**         *##foreach($dependency in $dependencies)##
+#**             *##set($depCount=$depCount+$dependency.getRelatedDependencies().size())##
+#**             *##if($dependency.getVulnerabilities().size()>0)##
+#**                 *##set($vulnDepCount=$vulnDepCount+1)##
+#**                 *##set($vulnCount=$vulnCount+$dependency.getVulnerabilities().size())##
+#**             *##end##
+#**             *##if($dependency.getSuppressedIdentifiers().size()>0)##
+#**                 *##set($cpeSuppressedCount=$cpeSuppressedCount+1)##
+#**             *##end##
+#**             *##if($dependency.getSuppressedVulnerabilities().size()>0)##
+#**                 *##set($vulnSuppressedCount=$vulnSuppressedCount+$dependency.getSuppressedVulnerabilities().size())##
+#**             *##end##
+#**         *##end##
+#**            *#Scan Information (<a href="#" title="Click to toggle display" onclick="return toggleDisplay(this, '.scaninfo', 'show all', 'show less');  return false;">show all</a>):<br/>##
+#**             *#<ul class="indent">##
+#**                 *#<li><i>dependency-check version</i>: $version</li>##
+#**                 *#<li><i>Report Generated On</i>: $scanDate</li>##
+#**                 *#<li><i>Dependencies Scanned</i>:&nbsp;$depCount ($dependencies.size() unique)</li>##
+#**                 *#<li><i>Vulnerable Dependencies</i>:&nbsp;<span id="vulnerableCount">$vulnDepCount</span></li>##
+#**                 *#<li><i>Vulnerabilities Found</i>:&nbsp;$vulnCount</li>##
+#**                 *#<li><i>Vulnerabilities Suppressed</i>:&nbsp;$vulnSuppressedCount</li>##
+#**                 *#<li class="scaninfo">...</li>##
+#**                 *##foreach($prop in $properties.getMetaData().entrySet())##
+#**                 *#<li class="scaninfo hidden"><i>$enc.html($prop.key)</i>: $enc.html($prop.value)</li>##
+#**                 *##end##
+#**             *#</ul><br/>##
+#**            *#Display:&nbsp;<a href="#" title="Click to toggle display" onclick="return toggleDisplay(this, '.notvulnerable', 'Showing Vulnerable Dependencies (click to show all)', 'Showing All Dependencies (click to show less)'); return false;">Showing Vulnerable Dependencies (click to show all)</a><br/><br/>##
+#**         *##set($lnkcnt=0)##
+#**         *#<table id="summaryTable" class="lined">##
+#**             *#<thead><tr style="text-align:left">##
+#**                 *#<th class="sortable" data-sort="string" title="The name of the dependency">Dependency</th>##
+#**                 *#<th class="sortable" data-sort="string" title="The Common Platform Enumeration">CPE</th>##
+#**                 *#<th class="sortable" data-sort="string" title="The Build Coordinates">Coordinates</th>##
+#**                 *#<th class="sortable" data-sort="int" title="The highest CVE Severity">Highest Severity</th>##
+#**                 *#<th class="sortable" data-sort="int" title="The number of Common Vulnerability and Exposure (CVE) entries">CVE Count</th>##
+#**                 *#<th class="sortable" data-sort="string" title="The confidence rating dependency-check has for the identified CPE">CPE Confidence</th>##
+#**                 *#<th class="sortable" data-sort="int" title="The count of evidence collected to identify the CPE">Evidence Count</th>##
+#**             *#</tr></thead>##
+#**             *##foreach($dependency in $dependencies)##
+#**             *##set($lnkcnt=$lnkcnt+1)##
+#**             *#<tr class="#if($dependency.getVulnerabilities().size()==0)notvulnerable#else vulnerable#end">##
+#**                 *#<td data-sort-value="$enc.html($dependency.DisplayFileName.toUpperCase())"><a href="#l${lnkcnt}_$enc.html($enc.url($dependency.Sha1sum))">$enc.html($dependency.DisplayFileName)</a></td>##
+#**                 *##set($mavenlink="")##
+#**                 *##set($cpeIdCount=0)##
+#**                 *##set($cpeIdConf="")##
+#**                 *##set($sortValue="")##
+#**                 *##foreach($id in $dependency.getIdentifiers())##
+#**                     *##if ($id.type!="maven" && $id.type!="npm")##
+#**                         *##set($sortValue=$sortValue+$id.value)##
+#**                     *##end##
+#**                 *##end##
+#**                 *#<td data-sort-value="$sortValue">##
+#**                 *##set($sortValue="")##
+#**                 *##set($cpeSort=0)##
+#**                 *##foreach($id in $dependency.getIdentifiers())##
+#**                     *##if ($id.type=="maven" || $id.type=="npm")##
+#**                         *##if ($mavenlink=="" || !$mavenlink.url)##
+#**                             *##set($mavenlink=$id)##
+#**                         *##end##
+#**                     *##else##
+#**                         *##if ($cpeIdCount>=1)##
+#**                             *#<br/>##
+#**                         *##end##
+#**                         *##if( $id.url )##
+#**                             *#<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>##
+#**                         *##else##
+#**                                *#$enc.html($id.value)##
+#**                         *##end##
+#**                         *##if ($cpeIdConf == "")##
+#**                             *##set($cpeIdConf=$id.confidence)##
+#**                             *##set($cpeSort=$id.confidence.ordinal())##
+#**                         *##elseif ($cpeIdConf.compareTo($id.confidence)>0)##
+#**                             *##set($cpeIdConf=$id.confidence)##
+#**                             *##set($cpeSort=$id.confidence.ordinal())##
+#**                         *##end##
+#**                         *##set($cpeIdCount=$cpeIdCount+1)##
+#**                     *##end##
+#**                 *##end##
+#**                 *#</td>##
+#**                 *##if ($mavenlink=="")##
+#**                 *#<td data-sort-value="">##
+#**                 *##else##
+#**                 *#<td data-sort-value="$enc.html($mavenlink.value.toLowerCase())">#if( $mavenlink.url )##
+#**                     *###yes, we are HTML Encoding the href. This is okay. We can't URL encode as we have to trust the analyzer here...##
+#**                     *#<a href="$enc.html($mavenlink.url)" target="_blank">$enc.html($mavenlink.value)</a>&nbsp;<span title="verified from repo" style="color:green">&#x2713;</span>##
+#**                 *##elseif ($mavenlink.value)##
+#**                        *#$enc.html($mavenlink.value)##
+#**                 *##end##
+#**                 *##end</td>##
+#**                 *##set($cveImpact=-1)##
+#**                 *##foreach($vuln in $dependency.getVulnerabilities())##
+#**                     *##if ($cveImpact<$vuln.cvssScore)##
+#**                         *##set($cveImpact=$vuln.cvssScore)##
+#**                     *##end##
+#**                 *##end##
+#**                 *##set($sortValue=$cveImpact*10)##
+#**                 *#<td data-sort-value="$sortValue">##
+#**                 *##if ($cveImpact<0)##
+#**                        *#&nbsp;##
+#**                 *##elseif ($cveImpact<4.0)##
+#**                        *#Low##
+#**                 *##elseif ($cveImpact>=7.0)##
+#**                        *#High##
+#**                 *##else##
+#**                        *#Medium##
+#**                 *##end##
+#**                 *#</td>##
+#**                 *#<td>$dependency.getVulnerabilities().size()</td>##
+#**                 *#<td data-sort-value="$cpeSort">$WordUtils.capitalizeFully($cpeIdConf.toString())</td>##
+#**                 *#<td>$dependency.size()</td>##
+#**             *#</tr>##
+#**             *##end##
+#**         *#</table>##
+#**         *#<h2>Dependencies</h2>##
+#**         *##set($lnkcnt=0)##
+#**         *##set($cnt=0)##
+#**         *##set($vsctr=0) ##counter to create unique groups for vulnerable software##
+#**         *##foreach($dependency in $dependencies)##
+#**             *##set($lnkcnt=$lnkcnt+1)##
+#**             *#<h3 class="subsectionheader standardsubsection#if($dependency.getVulnerabilities().size()==0) notvulnerable#end"><a name="l${lnkcnt}_$enc.html($dependency.Sha1sum)"></a>$enc.html($dependency.DisplayFileName)</h3>##
+#**             *#<div class="subsectioncontent#if($dependency.getVulnerabilities().size()==0) notvulnerable#end">##
+#**                 *##if ($dependency.description)##
+#**                     *#<p><b>Description:</b>&nbsp;$enc.html($dependency.description)<br/></p>##
+#**                 *##end##
+#**                 *#<p>##
+#**                 *##if ($dependency.license)##
+#**                     *##if ($dependency.license.startsWith("http://"))##
+#**                     *#<b>License:</b><pre class="indent"><a href="$enc.html($dependency.license)">$enc.html($dependency.license)</a></pre>##
+#**                     *##else##
+#**                     *#<b>License:</b><pre class="indent">$enc.html($dependency.license)</pre>##
+#**                     *##end##
+#**                 *##end##
+#**                     *#<b>File&nbsp;Path:</b>&nbsp;$enc.html($dependency.FilePath)<br/>##
+#**                     *#<b>MD5:</b>&nbsp;$enc.html($dependency.Md5sum)<br/>##
+#**                     *#<b>SHA1:</b>&nbsp;$enc.html($dependency.Sha1sum)##
+#**                     *##if ($dependency.projectReferences.size()==1)##
+#**                         *#<br/><b>Referenced In Project/Scope:</b>##
+#**                         *##foreach($ref in $dependency.projectReferences)##
+#**                                *#$enc.html($ref)##
+#**                         *##end##
+#**                     *##end##
+#**                     *##if ($dependency.projectReferences.size()>1)##
+#**                         *#<br/><b>Referenced In Projects/Scopes:</b><ul>##
+#**                         *##foreach($ref in $dependency.projectReferences)##
+#**                             *#<li>$enc.html($ref)</li>##
+#**                         *##end##
+#**                         *#</ul>##
+#**                     *##end##
+#**                 *#</p>##
+#**                 *##set($cnt=$cnt+1)##
+#**                 *#<h4 id="header$cnt" class="subsectionheader expandable expandablesubsection white">Evidence</h4>##
+#**                 *#<div id="content$cnt" class="subsectioncontent standardsubsection hidden">##
+#**                     *#<table class="lined fullwidth" border="0">##
+#**                         *#<tr><th class="left" style="width:10%;">Type</th><th class="left" style="width:10%;">Source</th><th class="left" style="width:20%;">Name</th><th class="left" style="width:50%;">Value</th><th class="left" style="width:10%;">Confidence</th></tr>##
+#**                         *##foreach($evidence in $dependency.getEvidence($VENDOR))##
+#**                             *#<tr><td>Vendor</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>##
+#**                         *##end##
+#**                         *##foreach($evidence in $dependency.getEvidence($PRODUCT))##
+#**                             *#<tr><td>Product</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>##
+#**                         *##end##
+#**                         *##foreach($evidence in $dependency.getEvidence($VERSION))##
+#**                             *#<tr><td>Version</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>##
+#**                         *##end##
+#**                     *#</table>##
+#**                 *#</div>##
+#**                 *##if($dependency.getRelatedDependencies().size()>0)##
+#**                     *##set($cnt=$cnt+1)##
+#**                     *#<h4 id="header$cnt" class="subsectionheader expandable expandablesubsection white">Related Dependencies</h4>##
+#**                     *#<div id="content$cnt" class="subsectioncontent standardsubsection hidden">##
+#**                     *#<ul>##
+#**                     *##foreach($related in $dependency.getRelatedDependencies())##
+#**                         *#<li>$enc.html($related.DisplayFileName)##
+#**                             *#<ul>##
+#**                                 *#<li>File Path:&nbsp;$enc.html($related.FilePath)</li>##
+#**                                 *#<li>SHA1:&nbsp;#if($related.Sha1sum)$enc.html($related.Sha1sum)#end</li>##
+#**                                 *#<li>MD5:&nbsp;#if($related.Md5sum)$enc.html($related.Md5sum)#end</li>##
+#**                                 *##foreach($id in $related.getIdentifiers())##
+#**                                     *##if( $id.url )##
+#**                                         *##if ($id.type=="maven")##
+#**                                             *###yes, we are HTML Encoding the href. this is okay. We can't URL encode as we have to trust the analyzer here...##
+#**                                             *#<li>$enc.html($id.type):&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>&nbsp;<span title="verified from repo" style="color:green">&#x2713;</span>##
+#**                                         *##else##
+#**                                             *#<li>$enc.html($id.type):&nbsp;$enc.html($id.value)##
+#**                                         *##end##
+#**                                         *#</li>##
+#**                                     *##end##
+#**                                     *##if ($id.type=="npm")##
+#**                                         *#<li>$enc.html($id.value)</li>##
+#**                                     *##end##
+#**                                 *##end##
+#**                              *#</ul>##
+#**                         *#</li>##
+#**                     *##end##
+#**                     *#</ul>##
+#**                     *#</div>##
+#**                 *##end##
+#**                 *##set($cnt=$cnt+1)##
+#**                 *##set($cpeCount=0)##
+#**                 *##foreach($id in $dependency.getIdentifiers())##
+#**                     *##if($id.type.equals("cpe"))##
+#**                         *##set($cpeCount=$cpeCount+1)##
+#**                     *##end##
+#**                 *##end##
+#**                 *#<h4 id="header$cnt" class="subsectionheader white">Identifiers</h4>##
+#**                 *###:&nbsp;<a href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($cpevalue)" target="_blank">$enc.html($cpevalue)</a></h4>##
+#**                 *#<div id="content$cnt" class="subsectioncontent standardsubsection">##
+#**                 *##if ($dependency.getIdentifiers().size()==0)##
+#**                     *#<ul><li><b>None</b></li></ul>##
+#**                 *##else ## ($dependency.getIdentifiers().size()>0)##
+#**                     *#<ul>##
+#**                     *##set($suppressGav='')##
+#**                     *##foreach($id in $dependency.getIdentifiers())##
+#**                         *##if ($id.type=="maven")##
+#**                             *##set($suppressGav=$id.value)##
+#**                         *##end##
+#**                     *##end##
+#**                     *##foreach($id in $dependency.getIdentifiers())##
+#**                         *##if( $id.url )##
+#**                             *##if($id.type=="maven")##
+#**                             *###yes, we are HTML Encoding the href. this is okay. We can't URL encode as we have to trust the analyzer here...##
+#**                             *#<li><b>$enc.html($id.type):</b>&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>&nbsp;<span title="verified from repo" style="color:green">&#x2713;</span>##
+#**                             *##else##
+#**                             *#<li><b>$enc.html($id.type):</b>&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>##
+#**                             *##end##
+#**                         *##else##
+#**                             *#<li><b>$enc.html($id.type):</b>&nbsp;$enc.html($id.value)##
+#**                         *##end##
+#**                         *##if ($id.confidence)##
+#**                                *#&nbsp;&nbsp;<i>Confidence</i>:$WordUtils.capitalizeFully($id.confidence.toString())##
+#**                         *##end##
+#**                         *##if ($id.type=="cpe")##
+#**                                *#&nbsp;&nbsp;<button class="copybutton" title="Generate Suppression XML for this CPE for this file" onclick="copyText('$enc.javascript($dependency.DisplayFileName)', '$enc.javascript($dependency.Sha1sum)', '$enc.javascript($suppressGav)', 'cpe', '$enc.javascript($id.value)')">suppress</button>##
+#**                         *##end##
+#**                         *##if ($id.description || $id.notes)##
+#**                             *#<ul>##
+#**                             *##if ($id.description)##
+#**                                 *#<li>Description: $enc.html($id.description)</li>##
+#**                             *##end##
+#**                             *##if ($id.notes)##
+#**                                 *#<li>Notes: $enc.xml($id.notes)</li>##
+#**                             *##end##
+#**                             *#</ul>##
+#**                         *##end##
+#**                         *#</li>##
+#**                     *##end##
+#**                     *#</ul>##
+#**                 *##end##
+#**                 *#</div>##
+#**             *##if($dependency.getVulnerabilities().size()>0)##
+#**             *##set($cnt=$cnt+1)##
+#**             *#<h4 id="header$cnt" class="subsectionheader expandable collaspablesubsection white">Published Vulnerabilities</h4>##
+#**             *#<div id="content$cnt" class="subsectioncontent standardsubsection">##
+#**                 *##foreach($vuln in $dependency.getVulnerabilities(true))##
+#**                     *##set($vsctr=$vsctr+1)##
+#**                     *##if($vuln.getSource().name().equals("NVD"))##
+#**                         *#<p><b><a target="_blank" href="http://web.nvd.nist.gov/view/vuln/detail?vulnId=$enc.url($vuln.name)">$enc.html($vuln.name)</a></b>&nbsp;&nbsp;<button class="copybutton" title="Generate Suppression XML for this CCE for this file" onclick="copyText('$enc.javascript($dependency.DisplayFileName)', '$enc.javascript($dependency.Sha1sum)', '$enc.javascript($suppressGav)', 'cve', '$enc.javascript($vuln.name)')">suppress</button></p>##
+#**                     *##elseif($vuln.getSource().name().equals("NSP"))##
+#**                         *#<p><b><a target="_blank" href="https://nodesecurity.io/advisories/$enc.url($vuln.name)">NSP-$enc.html($vuln.name)</a></b></p>##
+#**                     *##end##
+#**                     *#<p>Severity:##
+#**                     *##if ($vuln.cvssScore<4.0)##
+#**                            *#Low##
+#**                     *##elseif ($vuln.cvssScore>=7.0)##
+#**                            *#High##
+#**                     *##else##
+#**                            *#Medium##
+#**                     *##end##
+#**                     *#<br/>CVSS Score: $vuln.cvssScore##
+#**                     *##if ($vuln.getSource().name().equals("NVD"))##
+#**                          //todo: temp workaround as NSP uses CVSSv3 and supplies the full vector *###
+#**                            *#(AV:$enc.html($vuln.cvssAccessVector.substring(0,1))/AC:$enc.html($vuln.cvssAccessComplexity.substring(0,1))/Au:$enc.html($vuln.cvssAuthentication.substring(0,1))/C:$enc.html($vuln.cvssConfidentialityImpact.substring(0,1))/I:$enc.html($vuln.cvssIntegrityImpact.substring(0,1))/A:$enc.html($vuln.cvssAvailabilityImpact.substring(0,1)))##
+#**                     *##end##
+#**                     *##if ($vuln.cwe)##
+#**                         *#<br/>CWE: $vuln.cwe##
+#**                     *##end##
+#**                     *##if ($vuln.notes)##
+#**                         *#<br/>Notes: $enc.html($vuln.notes)##
+#**                     *##end</p>##
+#**                     *#<p>$enc.html($vuln.description)##
+#**                     *##if ($vuln.getReferences().size()>0)##
+#**                         *#<ul>##
+#**                         *##foreach($ref in $vuln.getReferences(true))##
+#**                             *#<li>$enc.html($ref.source) - <a target="_blank" href="$enc.html($ref.url)">$ref.name</a></li>##
+#**                         *##end##
+#**                         *#</ul>##
+#**                     *##end##
+#**                     *#</p>##
+##
+#**                     *##if ($vuln.getSource().name().equals("NVD"))##
+#**                         *##if ($vuln.getVulnerableSoftware().size()<2)##
+#**                             *#<p>Vulnerable Software &amp; Versions:<ul>##
+#**                                 *#<li class="vs$vsctr"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vuln.matchedCPE)">$enc.html($vuln.matchedCPE)</a> #if($vuln.hasMatchedAllPreviousCPE()) and all previous versions#end</li>##
+#**                             *#</ul></p>##
+#**                         *##else##
+#**                             *#<p>Vulnerable Software &amp; Versions:&nbsp;(<a href="#" onclick="return toggleDisplay(this,'.vs$vsctr', 'show all', 'show less');">show all</a>)<ul>##
+#**                                 *#<li class="vs$vsctr"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vuln.matchedCPE)">$enc.html($vuln.matchedCPE)</a> #if($vuln.hasMatchedAllPreviousCPE()) and all previous versions#end</li>##
+#**                                 *#<li class="vs$vsctr">...</li>##
+#**                             *##foreach($vs in $vuln.getVulnerableSoftware(true))##
+#**                                 *#<li class="vs$vsctr hidden"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vs.name)">$enc.html($vs.name)</a> #if($vs.hasPreviousVersion()) and all previous versions#end</li>##
+#**                             *##end##
+#**                             *#</ul></p>##
+#**                         *##end##
+#**                     *##elseif ($vuln.getSource().name().equals("NSP"))##
+#**                         *#<p>Vulnerable Software &amp; Versions:##
+#**                             *#<ul>##
+#**                             *##foreach($vs in $vuln.getVulnerableSoftware())##
+#**                                 *#<li class="vs$vsctr">$enc.html($vs.name)</li>##
+#**                             *##end##
+#**                             *#</ul>##
+#**                         *#</p>##
+#**                     *##end##
+#**                 *##end##
+#**             *#</div>##
+#**             *##end##
+#**         *#</div>##
+#**         *##end##
+##
+##
+##
 ## BEGIN SUPPRESSED VULNERABILITIES
-                #if ($vulnSuppressedCount>0 || $cpeSuppressedCount>0)
-                    #set($cnt=$cnt+1)
-                    <h2 id="header$cnt" class="expandable">Suppressed Vulnerabilities</h3>
-                    <div id="content$cnt" class="hidden">
-
-                    #foreach($dependency in $dependencies)
-                        #if ($dependency.getSuppressedIdentifiers().size()>0 || $dependency.getSuppressedVulnerabilities().size()>0)
-                            #set($lnkcnt=$lnkcnt+1)
-                            <h3 class="subsectionheader standardsubsection">$enc.html($dependency.DisplayFileName)</h3>
-                            <div class="subsectioncontent">
-                                #if ($dependency.description)
-                                    <p><b>Description:</b>&nbsp;$enc.html($dependency.description)<br/></p>
-                                #end
-                                <p>
-                                #if ($dependency.license)
-                                    #if ($dependency.license.startsWith("http://"))
-                                    <b>License:</b><pre class="indent"><a href="$enc.html($dependency.license)">$enc.html($dependency.license)</a></pre>
-                                    #else
-                                    <b>License:</b><pre class="indent">$enc.html($dependency.license)</pre>
-                                    #end
-                                #end
-                                    <b>File&nbsp;Path:</b>&nbsp;$enc.html($dependency.FilePath)<br/>
-                                    <b>MD5:</b>&nbsp;$enc.html($dependency.Md5sum)<br/>
-                                    <b>SHA1:</b>&nbsp;$enc.html($dependency.Sha1sum)
-                                </p>
-                                #set($cnt=$cnt+1)
-                                <h4 id="header$cnt" class="subsectionheader expandable expandablesubsection white">Evidence</h4>
-                                <div id="content$cnt" class="subsectioncontent standardsubsection hidden">
-                                    <table class="lined fullwidth" border="0">
-                                        <tr><th class="left" style="width:10%;">Type</th><th class="left" style="width:10%;">Source</th><th class="left" style="width:20%;">Name</th><th class="left" style="width:50%;">Value</th><th class="left" style="width:10%;">Confidence</th></tr>
-                                        #foreach($evidence in $dependency.getEvidence($VENDOR))
-                                            <tr><td>Vendor</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>
-                                        #end
-                                        #foreach($evidence in $dependency.getEvidence($PRODUCT))
-                                            <tr><td>Product</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>
-                                        #end
-                                        #foreach($evidence in $dependency.getEvidence($VERSION))
-                                            <tr><td>Version</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>
-                                        #end
-                                    </table>
-                                </div>
-                                #if($dependency.getRelatedDependencies().size()>0)
-                                    #set($cnt=$cnt+1)
-                                    <h4 id="header$cnt" class="subsectionheader expandable expandablesubsection white">Related Dependencies</h4>
-                                    <div id="content$cnt" class="subsectioncontent standardsubsection hidden">
-                                    <ul>
-                                    #foreach($related in $dependency.getRelatedDependencies())
-                                        <li>$enc.html($related.DisplayFileName)
-                                            <ul>
-                                                <li>File Path:&nbsp;$enc.html($related.FilePath)</li>
-                                                <li>SHA1:&nbsp;#if($related.Sha1sum)$enc.html($related.Sha1sum)#end</li>
-                                                <li>MD5:&nbsp;#if($related.Md5sum)$enc.html($related.Md5sum)#end</li>
-                                             </ul>
-                                        </li>
-                                    #end
-                                    </ul>
-                                    </div>
-                                #end
-                                #set($cnt=$cnt+1)
-                                #set($cpeCount=0)
-                                #foreach($id in $dependency.getSuppressedIdentifiers())
-                                    #if($id.type.equals("cpe"))
-                                        #set($cpeCount=$cpeCount+1)
-                                    #end
-                                #end
-                                <h4 id="header$cnt" class="subsectionheader white">Suppressed Identifiers</h4>
-                                ##:&nbsp;<a href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($cpevalue)" target="_blank">$enc.html($cpevalue)</a></h4>
-                                <div id="content$cnt" class="subsectioncontent standardsubsection">
-                                #if ($dependency.getSuppressedIdentifiers().size()==0)
-                                    <ul><li><b>None</b></li></ul>
-                                #else ## ($dependency.getSuppressedIdentifiers().size()>0)
-                                    <ul>
-                                    #foreach($id in $dependency.getSuppressedIdentifiers())
-                                        #if( $id.url )
-                                            #if($id.type=="maven")
-                                            <li><b>$enc.html($id.type):</b>&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>&nbsp;<span title="verified from repo" style="color:green">&#x2713;</span>&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span>
-                                            #else
-                                            <li><b>$enc.html($id.type):</b>&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span>
-                                            #end
-                                        #else
-                                            <li><b>$enc.html($id.type):</b>&nbsp;$enc.html($id.value)&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span>
-                                        #end
-                                        #if ($id.confidence)
-                                            &nbsp;&nbsp;<i>Confidence</i>:$WordUtils.capitalizeFully($id.confidence.toString())
-                                        #end
-                                        #if ($id.description || $id.notes)
-                                            <ul>
-                                            #if ($id.description)
-                                                <li>Description: $enc.html($id.description)</li>
-                                            #end
-                                            #if ($id.notes)
-                                                <li>Notes: $enc.html($id.notes)</li>
-                                            #end
-                                            </ul>
-                                        #end
-                                        </li>
-                                    #end
-                                    </ul>
-                                #end
-                                </div>
-                            #if($dependency.getSuppressedVulnerabilities().size()>0)
-                            #set($cnt=$cnt+1)
-                            <h4 id="header$cnt" class="subsectionheader expandable collaspablesubsection white">Suppressed Vulnerabilities</h4>
-                            <div id="content$cnt" class="subsectioncontent standardsubsection">
-                                #foreach($vuln in $dependency.getSuppressedVulnerabilities(true))
-                                    #set($vsctr=$vsctr+1)
-                                    #if($vuln.getSource().name().equals("NVD"))
-                                        <p><b><a target="_blank" href="http://web.nvd.nist.gov/view/vuln/detail?vulnId=$enc.url($vuln.name)">$enc.html($vuln.name)</a></b>&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span></p>
-                                    #elseif($vuln.getSource().name().equals("NSP"))
-                                        <p><b><a target="_blank" href="https://nodesecurity.io/advisories/$enc.url($vuln.name)">NSP-$enc.html($vuln.name)</a></b>&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span></p>
-                                    #end
-                                    <p>Severity:
-                                    #if ($vuln.cvssScore<4.0)
-                                        Low
-                                    #elseif ($vuln.cvssScore>=7.0)
-                                        High
-                                    #else
-                                        Medium
-                                    #end
-                                    <br/>CVSS Score: $vuln.cvssScore
-                                    #if ($vuln.cwe)
-                                        <br/>CWE: $vuln.cwe
-                                    #end
-                                    #if ($vuln.notes)
-                                        <br/>Notes: $enc.xml($vuln.notes)
-                                    #end</p>
-                                    <p>$enc.html($vuln.description)
-                                        #if ($vuln.getReferences().size()>0)
-                                            <ul>
-                                            #foreach($ref in $vuln.getReferences(true))
-                                                <li>$enc.html($ref.source) - <a target="_blank" href="$enc.html($ref.url)">$ref.name</a></li>
-                                            #end
-                                            </ul>
-                                        #end
-                                    </p>
-                                    #if ($vuln.getVulnerableSoftware().size()<2)
-                                        <p>Vulnerable Software &amp; Versions:<ul>
-                                            <li class="vs$vsctr"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vuln.matchedCPE)">$enc.html($vuln.matchedCPE)</a> #if($vuln.hasMatchedAllPreviousCPE()) and all previous versions#end</li>
-                                        </ul></p>
-                                    #else
-                                        <p>Vulnerable Software &amp; Versions:&nbsp;(<a href="#" onclick="return toggleDisplay(this,'.vs$vsctr', 'show all', 'show less');">show all</a>)<ul>
-                                            <li class="vs$vsctr"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vuln.matchedCPE)">$enc.html($vuln.matchedCPE)</a> #if($vuln.hasMatchedAllPreviousCPE()) and all previous versions#end</li>
-                                            <li class="vs$vsctr">...</li>
-                                        #foreach($vs in $vuln.getVulnerableSoftware(true))
-                                            <li class="vs$vsctr hidden"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vs.name)">$enc.html($vs.name)</a> #if($vs.hasPreviousVersion()) and all previous versions#end</li>
-                                        #end
-                                        </ul></p>
-                                    #end
-                                #end
-                                </div>
-                            #end
-                            </div>
-                        #end
-                    #end
-                    </div>
-                #end
-## END SUPPRESSED VULNERABILITIES
-            </div>
-        </div>
-        <div>
-            <br/><br/>
-            This report contains data retrieved from the <a href="https://nvd.nist.gov">National Vulnerability Database</a>.
-            <br/>
-            This report may contain data retrieved from the <a href="https://nodesecurity.io">Node Security Platform</a>.
-        </div>
-    </body>
-</html>
+#**         *##if ($vulnSuppressedCount>0 || $cpeSuppressedCount>0)##
+#**             *##set($cnt=$cnt+1)##
+#**             *#<h2 id="header$cnt" class="expandable">Suppressed Vulnerabilities</h3>##
+#**             *#<div id="content$cnt" class="hidden">##
+##
+#**             *##foreach($dependency in $dependencies)##
+#**                 *##if ($dependency.getSuppressedIdentifiers().size()>0 || $dependency.getSuppressedVulnerabilities().size()>0)##
+#**                     *##set($lnkcnt=$lnkcnt+1)##
+#**                     *#<h3 class="subsectionheader standardsubsection">$enc.html($dependency.DisplayFileName)</h3>##
+#**                     *#<div class="subsectioncontent">##
+#**                         *##if ($dependency.description)##
+#**                             *#<p><b>Description:</b>&nbsp;$enc.html($dependency.description)<br/></p>##
+#**                         *##end##
+#**                         *#<p>##
+#**                         *##if ($dependency.license)##
+#**                             *##if ($dependency.license.startsWith("http://"))##
+#**                             *#<b>License:</b><pre class="indent"><a href="$enc.html($dependency.license)">$enc.html($dependency.license)</a></pre>##
+#**                             *##else##
+#**                             *#<b>License:</b><pre class="indent">$enc.html($dependency.license)</pre>##
+#**                             *##end##
+#**                         *##end##
+#**                             *#<b>File&nbsp;Path:</b>&nbsp;$enc.html($dependency.FilePath)<br/>##
+#**                             *#<b>MD5:</b>&nbsp;$enc.html($dependency.Md5sum)<br/>##
+#**                             *#<b>SHA1:</b>&nbsp;$enc.html($dependency.Sha1sum)##
+#**                         *#</p>##
+#**                         *##set($cnt=$cnt+1)##
+#**                         *#<h4 id="header$cnt" class="subsectionheader expandable expandablesubsection white">Evidence</h4>##
+#**                         *#<div id="content$cnt" class="subsectioncontent standardsubsection hidden">##
+#**                             *#<table class="lined fullwidth" border="0">##
+#**                                 *#<tr><th class="left" style="width:10%;">Type</th><th class="left" style="width:10%;">Source</th><th class="left" style="width:20%;">Name</th><th class="left" style="width:50%;">Value</th><th class="left" style="width:10%;">Confidence</th></tr>##
+#**                                 *##foreach($evidence in $dependency.getEvidence($VENDOR))##
+#**                                     *#<tr><td>Vendor</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>##
+#**                                 *##end##
+#**                                 *##foreach($evidence in $dependency.getEvidence($PRODUCT))##
+#**                                     *#<tr><td>Product</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>##
+#**                                 *##end##
+#**                                 *##foreach($evidence in $dependency.getEvidence($VERSION))##
+#**                                     *#<tr><td>Version</td><td>$enc.html($evidence.getSource())</td><td>$enc.html($evidence.getName())</td><td>$enc.html($evidence.getValue())</td><td>$WordUtils.capitalizeFully($evidence.getConfidence().toString())</td></tr>##
+#**                                 *##end##
+#**                             *#</table>##
+#**                         *#</div>##
+#**                         *##if($dependency.getRelatedDependencies().size()>0)##
+#**                             *##set($cnt=$cnt+1)##
+#**                             *#<h4 id="header$cnt" class="subsectionheader expandable expandablesubsection white">Related Dependencies</h4>##
+#**                             *#<div id="content$cnt" class="subsectioncontent standardsubsection hidden">##
+#**                             *#<ul>##
+#**                             *##foreach($related in $dependency.getRelatedDependencies())##
+#**                                 *#<li>$enc.html($related.DisplayFileName)##
+#**                                     *#<ul>##
+#**                                         *#<li>File Path:&nbsp;$enc.html($related.FilePath)</li>##
+#**                                         *#<li>SHA1:&nbsp;#if($related.Sha1sum)$enc.html($related.Sha1sum)#end</li>##
+#**                                         *#<li>MD5:&nbsp;#if($related.Md5sum)$enc.html($related.Md5sum)#end</li>##
+#**                                      *#</ul>##
+#**                                 *#</li>##
+#**                             *##end##
+#**                             *#</ul>##
+#**                             *#</div>##
+#**                         *##end##
+#**                         *##set($cnt=$cnt+1)##
+#**                         *##set($cpeCount=0)##
+#**                         *##foreach($id in $dependency.getSuppressedIdentifiers())##
+#**                             *##if($id.type.equals("cpe"))##
+#**                                 *##set($cpeCount=$cpeCount+1)##
+#**                             *##end##
+#**                         *##end##
+#**                         *#<h4 id="header$cnt" class="subsectionheader white">Suppressed Identifiers</h4>##
+#**                         *###:&nbsp;<a href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($cpevalue)" target="_blank">$enc.html($cpevalue)</a></h4>##
+#**                         *#<div id="content$cnt" class="subsectioncontent standardsubsection">##
+#**                         *##if ($dependency.getSuppressedIdentifiers().size()==0)##
+#**                             *#<ul><li><b>None</b></li></ul>##
+#**                         *##else ## ($dependency.getSuppressedIdentifiers().size()>0)##
+#**                             *#<ul>##
+#**                             *##foreach($id in $dependency.getSuppressedIdentifiers())##
+#**                                 *##if( $id.url )##
+#**                                     *##if($id.type=="maven")##
+#**                                     *#<li><b>$enc.html($id.type):</b>&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>&nbsp;<span title="verified from repo" style="color:green">&#x2713;</span>&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span>##
+#**                                     *##else##
+#**                                     *#<li><b>$enc.html($id.type):</b>&nbsp;<a href="$enc.html($id.url)" target="_blank">$enc.html($id.value)</a>&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span>##
+#**                                     *##end##
+#**                                 *##else##
+#**                                     *#<li><b>$enc.html($id.type):</b>&nbsp;$enc.html($id.value)&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span>##
+#**                                 *##end##
+#**                                 *##if ($id.confidence)##
+#**                                        *#&nbsp;&nbsp;<i>Confidence</i>:$WordUtils.capitalizeFully($id.confidence.toString())##
+#**                                 *##end##
+#**                                 *##if ($id.description || $id.notes)##
+#**                                     *#<ul>##
+#**                                     *##if ($id.description)##
+#**                                         *#<li>Description: $enc.html($id.description)</li>##
+#**                                     *##end##
+#**                                     *##if ($id.notes)##
+#**                                         *#<li>Notes: $enc.html($id.notes)</li>##
+#**                                     *##end##
+#**                                     *#</ul>##
+#**                                 *##end##
+#**                                 *#</li>##
+#**                             *##end##
+#**                             *#</ul>##
+#**                         *##end##
+#**                         *#</div>##
+#**                     *##if($dependency.getSuppressedVulnerabilities().size()>0)##
+#**                     *##set($cnt=$cnt+1)##
+#**                     *#<h4 id="header$cnt" class="subsectionheader expandable collaspablesubsection white">Suppressed Vulnerabilities</h4>##
+#**                     *#<div id="content$cnt" class="subsectioncontent standardsubsection">##
+#**                         *##foreach($vuln in $dependency.getSuppressedVulnerabilities(true))##
+#**                             *##set($vsctr=$vsctr+1)##
+#**                             *##if($vuln.getSource().name().equals("NVD"))##
+#**                                 *#<p><b><a target="_blank" href="http://web.nvd.nist.gov/view/vuln/detail?vulnId=$enc.url($vuln.name)">$enc.html($vuln.name)</a></b>&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span></p>##
+#**                             *##elseif($vuln.getSource().name().equals("NSP"))##
+#**                                 *#<p><b><a target="_blank" href="https://nodesecurity.io/advisories/$enc.url($vuln.name)">NSP-$enc.html($vuln.name)</a></b>&nbsp;&nbsp;<span class="suppressedLabel" >suppressed</span></p>##
+#**                             *##end##
+#**                             *#<p>Severity:##
+#**                             *##if ($vuln.cvssScore<4.0)##
+#**                                    *#Low##
+#**                             *##elseif ($vuln.cvssScore>=7.0)##
+#**                                    *#High##
+#**                             *##else##
+#**                                    *#Medium##
+#**                             *##end##
+#**                             *#<br/>CVSS Score: $vuln.cvssScore##
+#**                             *##if ($vuln.cwe)##
+#**                                 *#<br/>CWE: $vuln.cwe##
+#**                             *##end##
+#**                             *##if ($vuln.notes)##
+#**                                 *#<br/>Notes: $enc.xml($vuln.notes)##
+#**                             *##end</p>##
+#**                             *#<p>$enc.html($vuln.description)##
+#**                                 *##if ($vuln.getReferences().size()>0)##
+#**                                     *#<ul>##
+#**                                     *##foreach($ref in $vuln.getReferences(true))##
+#**                                         *#<li>$enc.html($ref.source) - <a target="_blank" href="$enc.html($ref.url)">$ref.name</a></li>##
+#**                                     *##end##
+#**                                     *#</ul>##
+#**                                 *##end##
+#**                             *#</p>##
+#**                             *##if ($vuln.getVulnerableSoftware().size()<2)##
+#**                                 *#<p>Vulnerable Software &amp; Versions:<ul>##
+#**                                     *#<li class="vs$vsctr"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vuln.matchedCPE)">$enc.html($vuln.matchedCPE)</a> #if($vuln.hasMatchedAllPreviousCPE()) and all previous versions#end</li>##
+#**                                 *#</ul></p>##
+#**                             *##else##
+#**                                 *#<p>Vulnerable Software &amp; Versions:&nbsp;(<a href="#" onclick="return toggleDisplay(this,'.vs$vsctr', 'show all', 'show less');">show all</a>)<ul>##
+#**                                     *#<li class="vs$vsctr"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vuln.matchedCPE)">$enc.html($vuln.matchedCPE)</a> #if($vuln.hasMatchedAllPreviousCPE()) and all previous versions#end</li>##
+#**                                     *#<li class="vs$vsctr">...</li>##
+#**                                 *##foreach($vs in $vuln.getVulnerableSoftware(true))##
+#**                                     *#<li class="vs$vsctr hidden"><a target="_blank" href="https://web.nvd.nist.gov/view/vuln/search-results?adv_search=true&cves=on&cpe_version=$enc.url($vs.name)">$enc.html($vs.name)</a> #if($vs.hasPreviousVersion()) and all previous versions#end</li>##
+#**                                 *##end##
+#**                                 *#</ul></p>##
+#**                             *##end##
+#**                         *##end##
+#**                         *#</div>##
+#**                     *##end##
+#**                     *#</div>##
+#**                 *##end##
+#**             *##end##
+#**             *#</div>##
+#**         *##end##
+## END SUPPRESSED VULNERABILITIES##
+#**     *#</div>##
+#** *#</div>##
+#** *#<div>##
+#**     *#<br/><br/>##
+#**        *#This report contains data retrieved from the <a href="https://nvd.nist.gov">National Vulnerability Database</a>.##
+#**     *#<br/>##
+#**        *#This report may contain data retrieved from the <a href="https://nodesecurity.io">Node Security Platform</a>.##
+#** *#</div>##
+#**</body>##
+</html>##

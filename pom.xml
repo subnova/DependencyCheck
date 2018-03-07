@@ -175,6 +175,8 @@ Copyright (c) 2012 - Jeremy Long
 
         <org.glassfish.javax.json.version>1.0.4</org.glassfish.javax.json.version>
         <maven-artifact-transfer.version>0.9.1</maven-artifact-transfer.version>
+        <htmlcompressor.version>1.5.2</htmlcompressor.version>
+        <yuicompressor.version>2.4.8</yuicompressor.version>
 
         <surefireArgLine/>
     </properties>
@@ -314,7 +316,8 @@ Copyright (c) 2012 - Jeremy Long
                 <plugin>
                     <groupId>org.codehaus.gmavenplus</groupId>
                     <artifactId>gmavenplus-plugin</artifactId>
-                    <version>1.6</version>
+                    <!-- upgrading beyond 1.5 will cause the build to fail on Java 7 -->
+                    <version>1.5</version>
                     <dependencies>
                         <dependency>
                             <groupId>org.codehaus.groovy</groupId>
@@ -330,8 +333,6 @@ Copyright (c) 2012 - Jeremy Long
             <plugin>
                 <groupId>org.codehaus.gmavenplus</groupId>
                 <artifactId>gmavenplus-plugin</artifactId>
-                <!-- upgrading beyond 1.5 will cause the build to fail on Java 7 -->
-                <version>1.5</version>
                 <dependencies>
                     <dependency>
                         <groupId>org.codehaus.groovy</groupId>
@@ -1019,6 +1020,16 @@ Copyright (c) 2012 - Jeremy Long
                 <groupId>org.apache.maven.shared</groupId>
                 <artifactId>maven-artifact-transfer</artifactId>
                 <version>${maven-artifact-transfer.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.googlecode.htmlcompressor</groupId>
+                <artifactId>htmlcompressor</artifactId>
+                <version>${htmlcompressor.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.yahoo.platform.yui</groupId>
+                <artifactId>yuicompressor</artifactId>
+                <version>${yuicompressor.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

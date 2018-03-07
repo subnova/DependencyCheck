@@ -22,6 +22,7 @@ import java.util.List;
 import com.google.gson.stream.JsonReader;
 import com.google.gson.stream.JsonToken;
 import com.google.gson.stream.JsonWriter;
+import com.googlecode.htmlcompressor.compressor.HtmlCompressor;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -31,9 +32,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.util.Properties;
 import javax.annotation.concurrent.NotThreadSafe;
 import org.apache.commons.lang3.text.WordUtils;
 import org.apache.velocity.VelocityContext;
@@ -126,7 +131,6 @@ public class ReportGenerator {
             DatabaseProperties properties, Settings settings) {
         this.settings = settings;
         velocityEngine = createVelocityEngine();
-        velocityEngine.init();
         context = createContext(applicationName, dependencies, analyzers, properties);
     }
 
@@ -165,7 +169,20 @@ public class ReportGenerator {
     private VelocityEngine createVelocityEngine() {
         final VelocityEngine velocity = new VelocityEngine();
         // Logging redirection for Velocity - Required by Jenkins and other server applications
-        velocity.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS, VelocityLoggerRedirect.class.getName());
+        Properties props = new Properties();
+        props.setProperty(RuntimeConstants.RUNTIME_LOG_LOGSYSTEM_CLASS, VelocityLoggerRedirect.class.getName());
+        velocity.init(props);
+
+        // TODO figure out why the compressHtml directive is not working...
+//        props.setProperty("userdirective.compressHtml.removeIntertagSpaces", "true");
+//        props.setProperty("userdirective","com.googlecode.htmlcompressor.velocity.HtmlCompressorDirective" +
+//        ",com.googlecode.htmlcompressor.velocity.XmlCompressorDirective" +
+//        ",com.googlecode.htmlcompressor.velocity.JavaScriptCompressorDirective" +
+//        ",com.googlecode.htmlcompressor.velocity.CssCompressorDirective");
+//        velocity.loadDirective("com.googlecode.htmlcompressor.velocity.HtmlCompressorDirective");
+//        velocity.loadDirective("com.googlecode.htmlcompressor.velocity.XmlCompressorDirective");
+//        velocity.loadDirective("com.googlecode.htmlcompressor.velocity.JavaScriptCompressorDirective");
+//        velocity.loadDirective("com.googlecode.htmlcompressor.velocity.CssCompressorDirective");
         return velocity;
     }
 
@@ -256,6 +273,8 @@ public class ReportGenerator {
             processTemplate(templateName, out);
             if (format == Format.JSON) {
                 pretifyJson(out.getPath());
+            } else if (format == Format.HTML) {
+                compressHtml(out.getPath());
             }
         }
     }
@@ -412,6 +431,43 @@ public class ReportGenerator {
             } catch (IOException ex) {
                 LOGGER.error("Unable to generate pretty report, caused by: ", ex.getMessage());
             }
+        }
+    }
+
+    /**
+     * Reformats the given HTML file.
+     *
+     * @param pathToHtml the path to the HTML file to be reformatted
+     * @throws ReportException thrown if the given HTML file is malformed
+     */
+    private void compressHtml(String pathToHtml) throws ReportException {
+        try {
+            final String outputPath = pathToHtml + ".pretty";
+            final File in = new File(pathToHtml);
+            final File out = new File(outputPath);
+
+            HtmlCompressor compressor = new HtmlCompressor();
+            compressor.setCompressCss(true);
+
+            compressor.setPreserveLineBreaks(false);
+            compressor.setRemoveIntertagSpaces(true);
+            compressor.setRemoveMultiSpaces(true);
+            compressor.setRemoveQuotes(false);
+            String contents = new String(Files.readAllBytes(Paths.get(pathToHtml)));
+            contents = compressor.compress(contents);
+            try (PrintWriter output = new PrintWriter(out)) {
+                output.print(contents);
+            }
+            if (out.isFile() && in.isFile() && in.delete()) {
+                try {
+                    org.apache.commons.io.FileUtils.moveFile(out, in);
+                } catch (IOException ex) {
+                    LOGGER.error("Unable to generate pretty report, caused by: ", ex.getMessage());
+                }
+            }
+        } catch (IOException ex) {
+            LOGGER.debug("Malformed JSON?", ex);
+            throw new ReportException("Unable to generate json report", ex);
         }
     }
 

@@ -182,76 +182,76 @@ arising out of or in connection with the use of this tool, the analysis performe
 <p>This report is intended to be a quick summary of findings. It is highly recommended that you use the full HTML
 report to determine if any <a href="http://jeremylong.github.io/DependencyCheck/general/suppression.html">false positives</a>
 have been reported. Additionally, the HTML report provides many features not found in the vulnerability report.</p>
-]]#
-            <h2 class="sectionheader white">Vulnerability&nbsp;Report&nbsp;for&nbsp;$enc.html($applicationName)</h2>
-            <div class="sectioncontent">Report Generated On: $scanDate<br/><br/>
-                #set($depCount=$dependencies.size())
-                #set($vulnCount=0)
-
-                #foreach($dependency in $dependencies)
-                    #set($depCount=$depCount+$dependency.getRelatedDependencies().size())
-                    #if($dependency.getVulnerabilities().size()>0)
-                        #set($vulnCount=$vulnCount+1)
-                    #end
-                #end
-                Dependencies Scanned:&nbsp;$depCount<br/>
-                Vulnerable Dependencies:&nbsp;<span id="volnCount">$vulnCount</span><br/><br/>
-                <h2>Vulnerable Dependencies</h2>
-                #set($cnt=0)
-                <table id="vulnTable" class="lined">
-                    <thead><tr>
-                        <th class="name" data-sort="string">NAME</th>
-                        <th class="cwe" data-sort="string">CWE</th>
-                        <th class="severity" data-sort="severity">Severity (CVSS)</th>
-                        <th class="dependency" data-sort="string">Dependency</th>
-                    </tr></thead>
-                    <tbody>
-                #foreach($dependency in $dependencies)
-                    #if($dependency.getVulnerabilities().size()>0)
-                        #foreach($vuln in $dependency.getVulnerabilities(true))
-                            <tr>
-                                <td>
-                                    #if($vuln.getSource().name().equals("NVD"))
-                                    <a target="_blank" href="http://web.nvd.nist.gov/view/vuln/detail?vulnId=$enc.url($vuln.name)">$enc.html($vuln.name)</a>
-                                    #elseif($vuln.getSource().name().equals("NSP"))
-                                    <a target="_blank" href="https://nodesecurity.io/advisories/$enc.url($vuln.name)">NSP-$enc.html($vuln.name)</a>
-                                    #end
-                                </td>
-                                <td>
-                                #if ($vuln.cwe)
-                                    $vuln.cwe
-                                #end
-                                </td>
-                                <td>
-                                #if ($vuln.cvssScore<4.0)
-                                    Low
-                                #elseif ($vuln.cvssScore>=7.0)
-                                    High
-                                #else
-                                    Medium
-                                #end
-                                ($vuln.cvssScore)
-                                <td>#set($cnt=$cnt+1)
-                                    #if($dependency.getRelatedDependencies().size()>0)<span id="header$cnt" class="expandable collapsedList">#end
-                                    <span title="$enc.html($dependency.FilePath)">$enc.html($dependency.DisplayFileName)</span>
-                                    #if($dependency.getRelatedDependencies().size()>0)&nbsp;&nbsp;&nbsp;</span><div id="content$cnt" class="hidden">#end
-                                    #foreach($related in $dependency.getRelatedDependencies())
-                                    <span title="$enc.html($related.FilePath)">$enc.html($related.DisplayFileName)</span><br/>
-                                    #end
-                                    #if($dependency.getRelatedDependencies().size()>0)</div#end
-                                </td>
-                            </tr>
-                        #end
-                    #end
-                #end
-                </tbody>
-                </table>
-            </div>
-        <p>
-            <br/><br/>
-            This report contains data retrieved from the <a href="https://nvd.nist.gov">National Vulnerability Database</a>.
-            <br/>
-            This report may contain data retrieved from the <a href="https://nodesecurity.io">Node Security Platform</a>.
-        </p>
-    </body>
-</html>
+]]###
+#**    *#<h2 class="sectionheader white">Vulnerability&nbsp;Report&nbsp;for&nbsp;$enc.html($applicationName)</h2>##
+#**    *#<div class="sectioncontent">Report Generated On: $scanDate<br/><br/>##
+#**        *##set($depCount=$dependencies.size())##
+#**        *##set($vulnCount=0)##
+##
+#**        *##foreach($dependency in $dependencies)##
+#**            *##set($depCount=$depCount+$dependency.getRelatedDependencies().size())##
+#**            *##if($dependency.getVulnerabilities().size()>0)##
+#**                *##set($vulnCount=$vulnCount+1)##
+#**            *##end##
+#**        *##end##
+#**        *#Dependencies Scanned:&nbsp;$depCount<br/>##
+#**        *#Vulnerable Dependencies:&nbsp;<span id="volnCount">$vulnCount</span><br/><br/>##
+#**        *#<h2>Vulnerable Dependencies</h2>##
+#**        *##set($cnt=0)##
+#**        *#<table id="vulnTable" class="lined">##
+#**            *#<thead><tr>##
+#**                *#<th class="name" data-sort="string">NAME</th>##
+#**                *#<th class="cwe" data-sort="string">CWE</th>##
+#**                *#<th class="severity" data-sort="severity">Severity (CVSS)</th>##
+#**                *#<th class="dependency" data-sort="string">Dependency</th>##
+#**            *#</tr></thead>##
+#**            *#<tbody>##
+#**        *##foreach($dependency in $dependencies)##
+#**            *##if($dependency.getVulnerabilities().size()>0)##
+#**                *##foreach($vuln in $dependency.getVulnerabilities(true))##
+#**                    *#<tr>##
+#**                        *#<td>##
+#**                            *##if($vuln.getSource().name().equals("NVD"))##
+#**                            *#<a target="_blank" href="http://web.nvd.nist.gov/view/vuln/detail?vulnId=$enc.url($vuln.name)">$enc.html($vuln.name)</a>##
+#**                            *##elseif($vuln.getSource().name().equals("NSP"))##
+#**                            *#<a target="_blank" href="https://nodesecurity.io/advisories/$enc.url($vuln.name)">NSP-$enc.html($vuln.name)</a>##
+#**                            *##end##
+#**                        *#</td>##
+#**                        *#<td>##
+#**                        *##if ($vuln.cwe)##
+#**                            *#$vuln.cwe##
+#**                        *##end##
+#**                        *#</td>##
+#**                        *#<td>##
+#**                        *##if ($vuln.cvssScore<4.0)##
+#**                           *#Low##
+#**                        *##elseif ($vuln.cvssScore>=7.0)##
+#**                           *#High##
+#**                        *##else##
+#**                           *#Medium##
+#**                        *##end##
+#**                        *#($vuln.cvssScore)##
+#**                        *#<td>#set($cnt=$cnt+1)##
+#**                            *##if($dependency.getRelatedDependencies().size()>0)<span id="header$cnt" class="expandable collapsedList">#end##
+#**                            *#<span title="$enc.html($dependency.FilePath)">$enc.html($dependency.DisplayFileName)</span>##
+#**                            *##if($dependency.getRelatedDependencies().size()>0)&nbsp;&nbsp;&nbsp;</span><div id="content$cnt" class="hidden">#end##
+#**                            *##foreach($related in $dependency.getRelatedDependencies())##
+#**                            *#<span title="$enc.html($related.FilePath)">$enc.html($related.DisplayFileName)</span><br/>##
+#**                            *##end##
+#**                            *##if($dependency.getRelatedDependencies().size()>0)</div#end##
+#**                        *#</td>##
+#**                    *#</tr>##
+#**                *##end##
+#**            *##end##
+#**        *##end##
+#**        *#</tbody>##
+#**        *#</table>##
+#**    *#</div>##
+#***#<p>##
+#**    *#<br/><br/>##
+#**    *#This report contains data retrieved from the <a href="https://nvd.nist.gov">National Vulnerability Database</a>.##
+#**    *#<br/>##
+#**    *#This report may contain data retrieved from the <a href="https://nodesecurity.io">Node Security Platform</a>.##
+#***#</p>##
+*#</body>##
+</html>##

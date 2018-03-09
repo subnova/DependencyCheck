@@ -219,7 +219,7 @@ have been reported. Additionally, the HTML report provides many features not fou
 #**                        *#</td>##
 #**                        *#<td>##
 #**                        *##if ($vuln.cwe)##
-#**                            *#$vuln.cwe##
+#**                            *#$vuln.cwe ##
 #**                        *##end##
 #**                        *#</td>##
 #**                        *#<td>##
@@ -253,5 +253,5 @@ have been reported. Additionally, the HTML report provides many features not fou
 #**    *#<br/>##
 #**    *#This report may contain data retrieved from the <a href="https://nodesecurity.io">Node Security Platform</a>.##
 #***#</p>##
-*#</body>##
+</body>##
 </html>##

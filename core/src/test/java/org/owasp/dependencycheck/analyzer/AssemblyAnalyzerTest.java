@@ -82,7 +82,7 @@ public class AssemblyAnalyzerTest extends BaseTest {
             } else {
                 LOGGER.warn("Exception setting up AssemblyAnalyzer. Tests will be incomplete");
             }
-            Assume.assumeNoException("Is mono installed? TESTS WILL BE INCOMPLETE", e);
+            Assume.assumeNoException("Is dotnet installed? TESTS WILL BE INCOMPLETE", e);
         }
     }
 
@@ -168,20 +168,20 @@ public class AssemblyAnalyzerTest extends BaseTest {
     }
 
     @Test
-    public void testWithSettingMono() throws Exception {
+    public void testWithSettingDotnet() throws Exception {
 
         //This test doesn't work on Windows.
         assumeFalse(System.getProperty("os.name").startsWith("Windows"));
 
-        String oldValue = getSettings().getString(Settings.KEYS.ANALYZER_ASSEMBLY_MONO_PATH);
+        String oldValue = getSettings().getString(Settings.KEYS.ANALYZER_ASSEMBLY_DOTNET_PATH);
         // if oldValue is null, that means that neither the system property nor the setting has
         // been set. If that's the case, then we have to make it such that when we recover,
         // null still comes back. But you can't put a null value in a HashMap, so we have to set
         // the system property rather than the setting.
         if (oldValue == null) {
-            System.setProperty(Settings.KEYS.ANALYZER_ASSEMBLY_MONO_PATH, "/yooser/bine/mono");
+            System.setProperty(Settings.KEYS.ANALYZER_ASSEMBLY_DOTNET_PATH, "/yooser/bine/dotnet");
         } else {
-            getSettings().setString(Settings.KEYS.ANALYZER_ASSEMBLY_MONO_PATH, "/yooser/bine/mono");
+            getSettings().setString(Settings.KEYS.ANALYZER_ASSEMBLY_DOTNET_PATH, "/yooser/bine/dotnet");
         }
 
         String oldProp = System.getProperty(LOG_KEY, "info");
@@ -202,9 +202,9 @@ public class AssemblyAnalyzerTest extends BaseTest {
             // Now recover the way we came in. If we had to set a System property, delete it. Otherwise,
             // reset the old value
             if (oldValue == null) {
-                System.getProperties().remove(Settings.KEYS.ANALYZER_ASSEMBLY_MONO_PATH);
+                System.getProperties().remove(Settings.KEYS.ANALYZER_ASSEMBLY_DOTNET_PATH);
             } else {
-                getSettings().setString(Settings.KEYS.ANALYZER_ASSEMBLY_MONO_PATH, oldValue);
+                getSettings().setString(Settings.KEYS.ANALYZER_ASSEMBLY_DOTNET_PATH, oldValue);
             }
         }
     }

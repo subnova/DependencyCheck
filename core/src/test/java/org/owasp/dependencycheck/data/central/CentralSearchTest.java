@@ -40,6 +40,7 @@ public class CentralSearchTest extends BaseTest {
     // you may not be able to reach. Remove the @Ignore annotation if you want to
     // test it anyway
     @Test
+    @Ignore
     public void testValidSha1() throws Exception {
         List<MavenArtifact> ma = searcher.searchSha1("9977a8d04e75609cf01badc4eb6a9c7198c4c5ea");
         assertEquals("Incorrect group", "org.apache.maven.plugins", ma.get(0).getGroupId());
@@ -51,12 +52,14 @@ public class CentralSearchTest extends BaseTest {
     // you may not be able to reach. Remove the @Ignore annotation if you want to
     // test it anyway
     @Test(expected = IOException.class)
+    @Ignore
     public void testMissingSha1() throws Exception {
         searcher.searchSha1("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA");
     }
 
     // This test should give us multiple results back from Central
     @Test
+    @Ignore
     public void testMultipleReturns() throws Exception {
         List<MavenArtifact> ma = searcher.searchSha1("94A9CE681A42D0352B3AD22659F67835E560D107");
         assertTrue(ma.size() > 1);

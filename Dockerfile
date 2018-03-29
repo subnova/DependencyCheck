@@ -60,8 +60,6 @@ RUN file="dependency-check-3.1.2-SNAPSHOT-release.zip"                      && \
     apt-get autoremove -y                                                   && \
     rm -rf /var/lib/apt/lists/* /tmp/*
  
-USER ${user}
-
 VOLUME ["/src" "/usr/share/dependency-check/data" "/report"]
 
 WORKDIR /src

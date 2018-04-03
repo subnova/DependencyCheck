@@ -2,6 +2,7 @@ package org.owasp.dependencycheck.data.central;
 
 import org.junit.Before;
 import org.junit.Test;
+import org.junit.Ignore;
 import org.owasp.dependencycheck.BaseTest;
 import org.owasp.dependencycheck.data.nexus.MavenArtifact;
 import org.owasp.dependencycheck.utils.Settings;
